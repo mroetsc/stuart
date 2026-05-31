@@ -19,15 +19,11 @@ struct Cli {
 fn main() {
     let args = Cli::parse();
 
-    match args.port {
-        Some(port) => {
-            todo!("open port directly");
-        }
-        None => {
-            let mut terminal = ratatui::init();
-            let mut app = App::new();
-            ui::run(&mut app, &mut terminal).unwrap();
-            ratatui::restore();
-        }
-    }
+    let mut terminal = ratatui::init();
+    let mut app = match args.port {
+        Some(port) => App::with_port(&port, args.baud.unwrap_or(115200)),
+        None => App::new(),
+    };
+    ui::run(&mut app, &mut terminal).unwrap();
+    ratatui::restore();
 }
