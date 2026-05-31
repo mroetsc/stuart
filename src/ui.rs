@@ -2,10 +2,11 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     layout::{Constraint, Layout},
     style::{Style, Stylize},
-    text::Line,
+    text::{Line, Text},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     DefaultTerminal, Frame,
 };
+use serialport::{SerialPortType, UsbPortInfo};
 use std::io;
 
 use crate::state::{App, Screen};
@@ -26,33 +27,103 @@ fn draw(app: &App, frame: &mut Frame) {
 }
 
 fn draw_port_select(app: &App, frame: &mut Frame) {
-    let [list_area, help_area] =
+    let [main_area, help_area] =
         Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(frame.area());
 
+    let [list_area, info_area] =
+        Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
+            .areas(main_area);
+
+    draw_port_list(app, frame, list_area);
+    draw_port_info(app, frame, info_area);
+    draw_help_bar(frame, help_area);
+}
+
+fn draw_port_list(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
     if app.ports.is_empty() {
         let msg = Paragraph::new("No serial ports found.")
             .block(Block::new().borders(Borders::ALL).title(" stuart "));
-        frame.render_widget(msg, list_area);
-    } else {
-        let items: Vec<ListItem> = app
-            .ports
-            .iter()
-            .map(|p| ListItem::new(p.port_name.clone()))
-            .collect();
-
-        let list = List::new(items)
-            .block(
-                Block::new()
-                    .borders(Borders::ALL)
-                    .title(" stuart — select a port "),
-            )
-            .highlight_symbol("> ")
-            .highlight_style(Style::new().reversed());
-
-        let mut state = ListState::default().with_selected(Some(app.selected));
-        frame.render_stateful_widget(list, list_area, &mut state);
+        frame.render_widget(msg, area);
+        return;
     }
 
+    let items: Vec<ListItem> = app
+        .ports
+        .iter()
+        .map(|p| ListItem::new(p.port_name.clone()))
+        .collect();
+
+    let list = List::new(items)
+        .block(
+            Block::new()
+                .borders(Borders::ALL)
+                .title(" stuart - select a port "),
+        )
+        .highlight_symbol("> ")
+        .highlight_style(Style::new().reversed());
+
+    let mut state = ListState::default().with_selected(Some(app.selected));
+    frame.render_stateful_widget(list, area, &mut state);
+}
+
+fn draw_port_info(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
+    let block = Block::new().borders(Borders::ALL).title(" port info ");
+
+    let content = match app.ports.get(app.selected) {
+        None => Text::from("No port selected."),
+        Some(port) => port_info_text(&port.port_type),
+    };
+
+    let paragraph = Paragraph::new(content).block(block);
+    frame.render_widget(paragraph, area);
+}
+
+fn port_info_text(port_type: &SerialPortType) -> Text<'_> {
+    match port_type {
+        SerialPortType::UsbPort(info) => usb_info_text(info),
+        SerialPortType::BluetoothPort => Text::from("Type: Bluetooth"),
+        SerialPortType::PciPort => Text::from("Type: PCI"),
+        SerialPortType::Unknown => Text::from("Type: Unknown"),
+    }
+}
+
+fn usb_info_text(info: &UsbPortInfo) -> Text<'_> {
+    let lines = vec![
+        Line::from(vec!["Type:         ".bold(), "USB".into()]),
+        Line::from(vec![
+            "VID:          ".bold(),
+            format!("{:#06x}", info.vid).into(),
+        ]),
+        Line::from(vec![
+            "PID:          ".bold(),
+            format!("{:#06x}", info.pid).into(),
+        ]),
+        Line::from(vec![
+            "Manufacturer: ".bold(),
+            info.manufacturer
+                .clone()
+                .unwrap_or_else(|| "-".to_string())
+                .into(),
+        ]),
+        Line::from(vec![
+            "Product:      ".bold(),
+            info.product
+                .clone()
+                .unwrap_or_else(|| "-".to_string())
+                .into(),
+        ]),
+        Line::from(vec![
+            "Serial:       ".bold(),
+            info.serial_number
+                .clone()
+                .unwrap_or_else(|| "-".to_string())
+                .into(),
+        ]),
+    ];
+    Text::from(lines)
+}
+
+fn draw_help_bar(frame: &mut Frame, area: ratatui::layout::Rect) {
     let help = Paragraph::new(Line::from(vec![
         " ↑↓ ".bold(),
         "select  ".into(),
@@ -62,7 +133,7 @@ fn draw_port_select(app: &App, frame: &mut Frame) {
         "quit ".into(),
     ]))
     .block(Block::new().borders(Borders::ALL));
-    frame.render_widget(help, help_area);
+    frame.render_widget(help, area);
 }
 
 fn draw_terminal(frame: &mut Frame) {
