@@ -14,6 +14,7 @@ use crate::state::{App, Screen};
 pub fn run(app: &mut App, terminal: &mut DefaultTerminal) -> io::Result<()> {
     while !app.exit {
         terminal.draw(|frame| draw(app, frame))?;
+        app.poll_serial();
         handle_events(app)?;
     }
     Ok(())
@@ -22,7 +23,7 @@ pub fn run(app: &mut App, terminal: &mut DefaultTerminal) -> io::Result<()> {
 fn draw(app: &App, frame: &mut Frame) {
     match app.screen {
         Screen::PortSelect => draw_port_select(app, frame),
-        Screen::Terminal => draw_terminal(frame),
+        Screen::Terminal => draw_terminal(app, frame),
     }
 }
 
@@ -47,6 +48,11 @@ fn draw_port_list(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
         return;
     }
 
+    let block_title = match &app.error {
+        Some(e) => format!(" Error: {} ", e),
+        None => " stuart - select a port ".to_string(),
+    };
+
     let items: Vec<ListItem> = app
         .ports
         .iter()
@@ -54,11 +60,7 @@ fn draw_port_list(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
         .collect();
 
     let list = List::new(items)
-        .block(
-            Block::new()
-                .borders(Borders::ALL)
-                .title(" stuart - select a port "),
-        )
+        .block(Block::new().borders(Borders::ALL).title(block_title))
         .highlight_symbol("> ")
         .highlight_style(Style::new().reversed());
 
@@ -67,14 +69,13 @@ fn draw_port_list(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
 }
 
 fn draw_port_info(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
-    let block = Block::new().borders(Borders::ALL).title(" port info ");
-
     let content = match app.ports.get(app.selected) {
         None => Text::from("No port selected."),
         Some(port) => port_info_text(&port.port_type),
     };
 
-    let paragraph = Paragraph::new(content).block(block);
+    let paragraph =
+        Paragraph::new(content).block(Block::new().borders(Borders::ALL).title(" port info "));
     frame.render_widget(paragraph, area);
 }
 
@@ -136,8 +137,18 @@ fn draw_help_bar(frame: &mut Frame, area: ratatui::layout::Rect) {
     frame.render_widget(help, area);
 }
 
-fn draw_terminal(frame: &mut Frame) {
-    todo!("terminal")
+fn draw_terminal(app: &App, frame: &mut Frame) {
+    let [output_area, help_area] =
+        Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(frame.area());
+
+    let text = app.received.join("\n");
+    let output =
+        Paragraph::new(text).block(Block::new().borders(Borders::ALL).title(" serial output "));
+    frame.render_widget(output, output_area);
+
+    let help = Paragraph::new(Line::from(vec![" q ".bold(), "disconnect & quit ".into()]))
+        .block(Block::new().borders(Borders::ALL));
+    frame.render_widget(help, help_area);
 }
 
 fn handle_events(app: &mut App) -> io::Result<()> {
@@ -160,13 +171,14 @@ fn handle_port_select_key(app: &mut App, code: KeyCode) {
         KeyCode::Char('q') => app.exit = true,
         KeyCode::Up => app.move_selection(-1),
         KeyCode::Down => app.move_selection(1),
-        KeyCode::Enter => app.screen = Screen::Terminal,
+        KeyCode::Enter => app.open_selected(),
         _ => {}
     }
 }
 
 fn handle_terminal_key(app: &mut App, code: KeyCode) {
     if let KeyCode::Char('q') = code {
-        app.exit = true
-    };
+        app.disconnect();
+        app.exit = true;
+    }
 }
