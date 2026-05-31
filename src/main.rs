@@ -1,9 +1,10 @@
 use clap::Parser;
 
-use crate::ui::App;
-
 mod serial;
+mod state;
 mod ui;
+
+use state::App;
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -25,7 +26,7 @@ fn main() {
         None => {
             let mut terminal = ratatui::init();
             let mut app = App::new();
-            app.run(&mut terminal).unwrap();
+            ui::run(&mut app, &mut terminal).unwrap();
             ratatui::restore();
         }
     }
