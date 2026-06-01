@@ -21,10 +21,10 @@ pub struct App {
     pub selected: usize,
     pub exit: bool,
     pub connection: Option<(Sender<Command>, Receiver<SerialEvent>)>,
-    pub received: Vec<String>,
     pub error: Option<String>,
     pub terminal_mode: TerminalMode,
     pub active_port: String,
+    pub parser: vt100::Parser,
 }
 
 impl App {
@@ -36,10 +36,10 @@ impl App {
             selected: 0,
             exit: false,
             connection: None,
-            received: Vec::new(),
             error: None,
             terminal_mode: TerminalMode::Insert,
             active_port: String::new(),
+            parser: vt100::Parser::new(24, 80, 0),
         }
     }
 
@@ -54,11 +54,15 @@ impl App {
             selected: 0,
             exit: false,
             connection,
-            received: Vec::new(),
             error,
             terminal_mode: TerminalMode::Insert,
             active_port: port_name.to_string(),
+            parser: vt100::Parser::new(24, 80, 0),
         }
+    }
+
+    pub fn resize_parser(&mut self, rows: u16, cols: u16) {
+        self.parser.screen_mut().set_size(rows, cols);
     }
 
     pub fn move_selection(&mut self, delta: i32) {
@@ -74,7 +78,7 @@ impl App {
             match serial::open(&port.port_name, 115200) {
                 Ok((tx, rx)) => {
                     self.error = None;
-                    self.received.clear();
+                    self.parser = vt100::Parser::new(24, 80, 0);
                     self.active_port = port.port_name.clone();
                     self.connection = Some((tx, rx));
                     self.screen = Screen::Terminal;
@@ -106,15 +110,7 @@ impl App {
             loop {
                 match rx.try_recv() {
                     Ok(SerialEvent::Data(bytes)) => {
-                        let text = String::from_utf8_lossy(&bytes);
-                        for chunk in text.split_inclusive('\n') {
-                            if let Some(last) = self.received.last_mut()
-                                && !last.ends_with('\n') {
-                                    last.push_str(chunk);
-                                    continue;
-                                }
-                            self.received.push(chunk.to_string());
-                        }
+                        self.parser.process(&bytes);
                     }
                     Ok(SerialEvent::Error(e)) => {
                         self.error = Some(e);

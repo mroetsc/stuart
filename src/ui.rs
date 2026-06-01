@@ -1,7 +1,7 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
-    layout::{Constraint, Layout},
-    style::{Style, Stylize},
+    layout::{Constraint, Layout, Rect},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Text},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     DefaultTerminal, Frame,
@@ -23,7 +23,7 @@ pub fn run(app: &mut App, terminal: &mut DefaultTerminal) -> io::Result<()> {
     Ok(())
 }
 
-fn draw(app: &App, frame: &mut Frame) {
+fn draw(app: &mut App, frame: &mut Frame) {
     match app.screen {
         Screen::PortSelect => draw_port_select(app, frame),
         Screen::Terminal => draw_terminal(app, frame),
@@ -43,7 +43,7 @@ fn draw_port_select(app: &App, frame: &mut Frame) {
     draw_help_bar(frame, help_area);
 }
 
-fn draw_port_list(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
+fn draw_port_list(app: &App, frame: &mut Frame, area: Rect) {
     if app.ports.is_empty() {
         let msg = Paragraph::new("No serial ports found.")
             .block(Block::new().borders(Borders::ALL).title(" stuart "));
@@ -71,7 +71,7 @@ fn draw_port_list(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
     frame.render_stateful_widget(list, area, &mut state);
 }
 
-fn draw_port_info(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
+fn draw_port_info(app: &App, frame: &mut Frame, area: Rect) {
     let content = match app.ports.get(app.selected) {
         None => Text::from("No port selected."),
         Some(port) => port_info_text(&port.port_type),
@@ -127,7 +127,7 @@ fn usb_info_text(info: &UsbPortInfo) -> Text<'_> {
     Text::from(lines)
 }
 
-fn draw_help_bar(frame: &mut Frame, area: ratatui::layout::Rect) {
+fn draw_help_bar(frame: &mut Frame, area: Rect) {
     let help = Paragraph::new(Line::from(vec![
         " ↑↓ ".bold(),
         "select  ".into(),
@@ -140,28 +140,62 @@ fn draw_help_bar(frame: &mut Frame, area: ratatui::layout::Rect) {
     frame.render_widget(help, area);
 }
 
-fn draw_terminal(app: &App, frame: &mut Frame) {
+fn draw_terminal(app: &mut App, frame: &mut Frame) {
     let [output_area, help_area] =
         Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(frame.area());
 
-    let text = app.received.join("");
-    let line_count = text.chars().filter(|c| *c == '\n').count() as u16;
-    let height = output_area.height.saturating_sub(2);
-    let scroll = line_count.saturating_sub(height);
-    let title = format!("stuart on {} ", app.active_port);
-    let output = Paragraph::new(text.clone())
-        .scroll((scroll, 0))
-        .block(Block::new().borders(Borders::ALL).title(title));
-    frame.render_widget(output, output_area);
+    let inner = Rect {
+        x: output_area.x + 1,
+        y: output_area.y + 1,
+        width: output_area.width.saturating_sub(2),
+        height: output_area.height.saturating_sub(2),
+    };
 
-    let last_line_len = text
-        .rfind('\n')
-        .map(|i| text[i + 1..].len())
-        .unwrap_or(text.len()) as u16;
-    let cursor_col = (output_area.x + 1 + last_line_len).min(output_area.x + output_area.width - 2);
-    let cursor_row = (output_area.y + 1 + line_count.saturating_sub(scroll))
-        .min(output_area.y + output_area.height - 2);
-    frame.set_cursor_position((cursor_col, cursor_row));
+    app.resize_parser(inner.height, inner.width);
+
+    let title = format!("stuart on {} ", app.active_port);
+    let block = Block::new().borders(Borders::ALL).title(title);
+    frame.render_widget(block, output_area);
+
+    let screen = app.parser.screen();
+    let buf = frame.buffer_mut();
+    for row in 0..inner.height {
+        for col in 0..inner.width {
+            if let Some(cell) = screen.cell(row, col) {
+                let ch = cell.contents();
+                if ch.is_empty() {
+                    continue;
+                }
+                let mut style = Style::default();
+
+                style = style.fg(vt100_color(cell.fgcolor()));
+                style = style.bg(vt100_color(cell.bgcolor()));
+
+                if cell.bold() {
+                    style = style.add_modifier(Modifier::BOLD);
+                }
+                if cell.italic() {
+                    style = style.add_modifier(Modifier::ITALIC);
+                }
+                if cell.underline() {
+                    style = style.add_modifier(Modifier::UNDERLINED);
+                }
+                if cell.inverse() {
+                    style = style.add_modifier(Modifier::REVERSED);
+                }
+
+                buf[(inner.x + col, inner.y + row)]
+                    .set_symbol(ch)
+                    .set_style(style);
+            }
+        }
+    }
+
+    let (crow, ccol) = screen.cursor_position();
+    frame.set_cursor_position((
+        (inner.x + ccol).min(inner.x + inner.width - 1),
+        (inner.y + crow).min(inner.y + inner.height - 1),
+    ));
 
     let help = match app.terminal_mode {
         TerminalMode::Insert => Paragraph::new(Line::from(vec![
@@ -179,6 +213,14 @@ fn draw_terminal(app: &App, frame: &mut Frame) {
     }
     .block(Block::new().borders(Borders::ALL));
     frame.render_widget(help, help_area);
+}
+
+fn vt100_color(color: vt100::Color) -> Color {
+    match color {
+        vt100::Color::Default => Color::Reset,
+        vt100::Color::Idx(i) => Color::Indexed(i),
+        vt100::Color::Rgb(r, g, b) => Color::Rgb(r, g, b),
+    }
 }
 
 fn handle_events(app: &mut App) -> io::Result<()> {
@@ -226,7 +268,7 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
             Some(c.encode_utf8(&mut buf).as_bytes().to_vec())
         }
         KeyCode::Enter => Some(vec![b'\r']),
-        KeyCode::Backspace => Some(vec![b'\x7f']),
+        KeyCode::Backspace => Some(vec![b'\x08']),
         KeyCode::Tab => Some(vec![b'\t']),
         KeyCode::Esc => Some(vec![b'\x1b']),
         _ => None,
