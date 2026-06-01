@@ -81,13 +81,27 @@ impl App {
         self.screen = Screen::PortSelect;
     }
 
+    pub fn send_bytes(&mut self, bytes: Vec<u8>) {
+        if let Some((tx, _)) = &self.connection {
+            let _ = tx.send(Command::Write(bytes));
+        }
+    }
+
     pub fn poll_serial(&mut self) {
         if let Some((_, rx)) = &self.connection {
             loop {
                 match rx.try_recv() {
                     Ok(SerialEvent::Data(bytes)) => {
-                        self.received
-                            .push(String::from_utf8_lossy(&bytes).into_owned());
+                        let text = String::from_utf8_lossy(&bytes);
+                        for chunk in text.split_inclusive('\n') {
+                            if let Some(last) = self.received.last_mut() {
+                                if !last.ends_with('\n') {
+                                    last.push_str(chunk);
+                                    continue;
+                                }
+                            }
+                            self.received.push(chunk.to_string());
+                        }
                     }
                     Ok(SerialEvent::Error(e)) => {
                         self.error = Some(e);
