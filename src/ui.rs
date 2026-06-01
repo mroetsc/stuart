@@ -145,14 +145,23 @@ fn draw_terminal(app: &App, frame: &mut Frame) {
         Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(frame.area());
 
     let text = app.received.join("");
-    let line_count = text.lines().count() as u16;
+    let line_count = text.chars().filter(|c| *c == '\n').count() as u16;
     let height = output_area.height.saturating_sub(2);
     let scroll = line_count.saturating_sub(height);
     let title = format!("stuart on {} ", app.active_port);
-    let output = Paragraph::new(text)
+    let output = Paragraph::new(text.clone())
         .scroll((scroll, 0))
         .block(Block::new().borders(Borders::ALL).title(title));
     frame.render_widget(output, output_area);
+
+    let last_line_len = text
+        .rfind('\n')
+        .map(|i| text[i + 1..].len())
+        .unwrap_or(text.len()) as u16;
+    let cursor_col = (output_area.x + 1 + last_line_len).min(output_area.x + output_area.width - 2);
+    let cursor_row = (output_area.y + 1 + line_count.saturating_sub(scroll))
+        .min(output_area.y + output_area.height - 2);
+    frame.set_cursor_position((cursor_col, cursor_row));
 
     let help = match app.terminal_mode {
         TerminalMode::Insert => Paragraph::new(Line::from(vec![
