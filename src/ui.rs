@@ -263,6 +263,9 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
     }
 
     let bytes: Option<Vec<u8>> = match code {
+        KeyCode::Char('c') if modifiers == KeyModifiers::CONTROL => Some(vec![b'\x03']),
+        KeyCode::Char('z') if modifiers == KeyModifiers::CONTROL => Some(vec![b'\x1a']),
+        KeyCode::Char('d') if modifiers == KeyModifiers::CONTROL => Some(vec![b'\x04']),
         KeyCode::Char(c) => {
             let mut buf = [0u8; 4];
             Some(c.encode_utf8(&mut buf).as_bytes().to_vec())
