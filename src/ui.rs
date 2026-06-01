@@ -270,23 +270,12 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
         return;
     }
 
-    let bytes: Option<Vec<u8>> = match code {
-        KeyCode::Char('c') if modifiers == KeyModifiers::CONTROL => Some(vec![b'\x03']),
-        KeyCode::Char('z') if modifiers == KeyModifiers::CONTROL => Some(vec![b'\x1a']),
-        KeyCode::Char('d') if modifiers == KeyModifiers::CONTROL => Some(vec![b'\x04']),
-        KeyCode::Char(c) => {
-            let mut buf = [0u8; 4];
-            Some(c.encode_utf8(&mut buf).as_bytes().to_vec())
+    let key_event = crossterm::event::Event::Key(crossterm::event::KeyEvent::new(code, modifiers));
+    if let Ok(t_event) = terminput_crossterm::to_terminput(key_event) {
+        let mut buf = [0u8; 16];
+        if let Ok(n) = t_event.encode(&mut buf, terminput::Encoding::Xterm) {
+            app.send_bytes(buf[..n].to_vec());
         }
-        KeyCode::Enter => Some(vec![b'\r']),
-        KeyCode::Backspace => Some(vec![b'\x08']),
-        KeyCode::Tab => Some(vec![b'\t']),
-        KeyCode::Esc => Some(vec![b'\x1b']),
-        _ => None,
-    };
-
-    if let Some(b) = bytes {
-        app.send_bytes(b);
     }
 }
 
