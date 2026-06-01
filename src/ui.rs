@@ -145,8 +145,13 @@ fn draw_terminal(app: &App, frame: &mut Frame) {
         Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(frame.area());
 
     let text = app.received.join("");
-    let output =
-        Paragraph::new(text).block(Block::new().borders(Borders::ALL).title(" serial output "));
+    let line_count = text.lines().count() as u16;
+    let height = output_area.height.saturating_sub(2);
+    let scroll = line_count.saturating_sub(height);
+
+    let output = Paragraph::new(text)
+        .scroll((scroll, 0))
+        .block(Block::new().borders(Borders::ALL).title(" serial output "));
     frame.render_widget(output, output_area);
 
     let help = match app.terminal_mode {
