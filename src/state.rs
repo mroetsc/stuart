@@ -104,12 +104,11 @@ impl App {
                     Ok(SerialEvent::Data(bytes)) => {
                         let text = String::from_utf8_lossy(&bytes);
                         for chunk in text.split_inclusive('\n') {
-                            if let Some(last) = self.received.last_mut() {
-                                if !last.ends_with('\n') {
+                            if let Some(last) = self.received.last_mut()
+                                && !last.ends_with('\n') {
                                     last.push_str(chunk);
                                     continue;
                                 }
-                            }
                             self.received.push(chunk.to_string());
                         }
                     }
