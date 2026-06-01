@@ -24,6 +24,7 @@ pub struct App {
     pub received: Vec<String>,
     pub error: Option<String>,
     pub terminal_mode: TerminalMode,
+    pub active_port: String,
 }
 
 impl App {
@@ -38,6 +39,7 @@ impl App {
             received: Vec::new(),
             error: None,
             terminal_mode: TerminalMode::Insert,
+            active_port: String::new(),
         }
     }
 
@@ -55,6 +57,7 @@ impl App {
             received: Vec::new(),
             error,
             terminal_mode: TerminalMode::Insert,
+            active_port: port_name.to_string(),
         }
     }
 
@@ -72,6 +75,7 @@ impl App {
                 Ok((tx, rx)) => {
                     self.error = None;
                     self.received.clear();
+                    self.active_port = port.port_name.clone();
                     self.connection = Some((tx, rx));
                     self.screen = Screen::Terminal;
                     self.terminal_mode = TerminalMode::Insert;

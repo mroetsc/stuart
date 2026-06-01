@@ -148,10 +148,10 @@ fn draw_terminal(app: &App, frame: &mut Frame) {
     let line_count = text.lines().count() as u16;
     let height = output_area.height.saturating_sub(2);
     let scroll = line_count.saturating_sub(height);
-
+    let title = format!("stuart on {} ", app.active_port);
     let output = Paragraph::new(text)
         .scroll((scroll, 0))
-        .block(Block::new().borders(Borders::ALL).title(" serial output "));
+        .block(Block::new().borders(Borders::ALL).title(title));
     frame.render_widget(output, output_area);
 
     let help = match app.terminal_mode {
