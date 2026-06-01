@@ -1445,6 +1445,8 @@ dependencies = [
  "crossterm",
  "ratatui",
  "serialport",
+ "terminput",
+ "terminput-crossterm",
  "vt100",
 ]
 
@@ -1480,6 +1482,25 @@ dependencies = [
  "nom",
  "phf",
  "phf_codegen",
+]
+
+[[package]]
+name = "terminput"
+version = "0.5.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8908e11ccbb43dca64278fb750affa925c3655112859c69d017e7b44f598165b"
+dependencies = [
+ "bitflags 2.11.1",
+]
+
+[[package]]
+name = "terminput-crossterm"
+version = "0.4.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6e1c1befffe416aa6a49e0c7ac9fb38dd3a08b72f7252bec604009f20c2ad1a"
+dependencies = [
+ "crossterm",
+ "terminput",
 ]
 
 [[package]]
