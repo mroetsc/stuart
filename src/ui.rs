@@ -16,7 +16,15 @@ pub fn run(app: &mut App, terminal: &mut DefaultTerminal) -> io::Result<()> {
     while !app.exit {
         terminal.draw(|frame| draw(app, frame))?;
         app.poll_serial();
-        if event::poll(Duration::from_millis(20))? {
+        // drain all pending events without blocking, then do one blocking
+        // poll with a short timeout so serial data still redraws promptly
+        while event::poll(Duration::from_millis(0))? {
+            handle_events(app)?;
+            if app.exit {
+                return Ok(());
+            }
+        }
+        if event::poll(Duration::from_millis(10))? {
             handle_events(app)?;
         }
     }
