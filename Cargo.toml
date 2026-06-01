@@ -8,3 +8,4 @@ clap = { version = "4.6.1", features = ["color", "usage", "help", "suggestions",
 crossterm = "0.29.0"
 ratatui = "0.30.0"
 serialport = "4.9.0"
+vt100 = "0.16.2"
