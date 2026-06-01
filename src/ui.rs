@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Constraint, Layout},
     style::{Style, Stylize},
@@ -8,14 +8,17 @@ use ratatui::{
 };
 use serialport::{SerialPortType, UsbPortInfo};
 use std::io;
+use std::time::Duration;
 
-use crate::state::{App, Screen};
+use crate::state::{App, Screen, TerminalMode};
 
 pub fn run(app: &mut App, terminal: &mut DefaultTerminal) -> io::Result<()> {
     while !app.exit {
         terminal.draw(|frame| draw(app, frame))?;
         app.poll_serial();
-        handle_events(app)?;
+        if event::poll(Duration::from_millis(20))? {
+            handle_events(app)?;
+        }
     }
     Ok(())
 }
@@ -141,13 +144,26 @@ fn draw_terminal(app: &App, frame: &mut Frame) {
     let [output_area, help_area] =
         Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(frame.area());
 
-    let text = app.received.join("\n");
+    let text = app.received.join("");
     let output =
         Paragraph::new(text).block(Block::new().borders(Borders::ALL).title(" serial output "));
     frame.render_widget(output, output_area);
 
-    let help = Paragraph::new(Line::from(vec![" q ".bold(), "disconnect & quit ".into()]))
-        .block(Block::new().borders(Borders::ALL));
+    let help = match app.terminal_mode {
+        TerminalMode::Insert => Paragraph::new(Line::from(vec![
+            " INSERT ".reversed().bold(),
+            "  Ctrl+Esc ".bold(),
+            "control mode ".into(),
+        ])),
+        TerminalMode::Control => Paragraph::new(Line::from(vec![
+            " CONTROL ".reversed().bold(),
+            "  a/i ".bold(),
+            "insert mode  ".into(),
+            "q ".bold(),
+            "disconnect & quit ".into(),
+        ])),
+    }
+    .block(Block::new().borders(Borders::ALL));
     frame.render_widget(help, help_area);
 }
 
@@ -155,12 +171,13 @@ fn handle_events(app: &mut App) -> io::Result<()> {
     if let Event::Key(KeyEvent {
         code,
         kind: KeyEventKind::Press,
+        modifiers,
         ..
     }) = event::read()?
     {
         match app.screen {
             Screen::PortSelect => handle_port_select_key(app, code),
-            Screen::Terminal => handle_terminal_key(app, code),
+            Screen::Terminal => handle_terminal_key(app, code, modifiers),
         }
     }
     Ok(())
@@ -176,9 +193,45 @@ fn handle_port_select_key(app: &mut App, code: KeyCode) {
     }
 }
 
-fn handle_terminal_key(app: &mut App, code: KeyCode) {
-    if let KeyCode::Char('q') = code {
-        app.disconnect();
-        app.exit = true;
+fn handle_terminal_key(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
+    match app.terminal_mode {
+        TerminalMode::Insert => handle_insert_mode(app, code, modifiers),
+        TerminalMode::Control => handle_control_mode(app, code),
+    }
+}
+
+fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
+    if code == KeyCode::Esc && modifiers == KeyModifiers::CONTROL {
+        app.terminal_mode = TerminalMode::Control;
+        return;
+    }
+
+    let bytes: Option<Vec<u8>> = match code {
+        KeyCode::Char(c) => {
+            let mut buf = [0u8; 4];
+            Some(c.encode_utf8(&mut buf).as_bytes().to_vec())
+        }
+        KeyCode::Enter => Some(vec![b'\r', b'\n']),
+        KeyCode::Backspace => Some(vec![b'\x7f']),
+        KeyCode::Tab => Some(vec![b'\t']),
+        KeyCode::Esc => Some(vec![b'\x1b']),
+        _ => None,
+    };
+
+    if let Some(b) = bytes {
+        app.send_bytes(b);
+    }
+}
+
+fn handle_control_mode(app: &mut App, code: KeyCode) {
+    match code {
+        KeyCode::Char('a') | KeyCode::Char('i') => {
+            app.terminal_mode = TerminalMode::Insert;
+        }
+        KeyCode::Char('q') => {
+            app.disconnect();
+            app.exit = true;
+        }
+        _ => {}
     }
 }

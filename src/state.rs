@@ -3,10 +3,16 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use crate::serial::{self, Command, SerialEvent};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Screen {
     PortSelect,
     Terminal,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TerminalMode {
+    Insert,
+    Control,
 }
 
 pub struct App {
@@ -17,6 +23,7 @@ pub struct App {
     pub connection: Option<(Sender<Command>, Receiver<SerialEvent>)>,
     pub received: Vec<String>,
     pub error: Option<String>,
+    pub terminal_mode: TerminalMode,
 }
 
 impl App {
@@ -30,6 +37,7 @@ impl App {
             connection: None,
             received: Vec::new(),
             error: None,
+            terminal_mode: TerminalMode::Insert,
         }
     }
 
@@ -46,6 +54,7 @@ impl App {
             connection,
             received: Vec::new(),
             error,
+            terminal_mode: TerminalMode::Insert,
         }
     }
 
@@ -65,6 +74,7 @@ impl App {
                     self.received.clear();
                     self.connection = Some((tx, rx));
                     self.screen = Screen::Terminal;
+                    self.terminal_mode = TerminalMode::Insert;
                 }
                 Err(e) => {
                     self.error = Some(e.to_string());
