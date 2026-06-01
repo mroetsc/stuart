@@ -161,7 +161,7 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
 
     app.resize_parser(inner.height, inner.width);
 
-    let title = format!("stuart on {} ", app.active_port);
+    let title = format!("stuart on {} @ {}", app.active_port, app.current_baud);
     let block = Block::new().borders(Borders::ALL).title(title);
     frame.render_widget(block, output_area);
 

@@ -24,6 +24,7 @@ pub struct App {
     pub error: Option<String>,
     pub terminal_mode: TerminalMode,
     pub active_port: String,
+    pub current_baud: u32,
     pub parser: vt100::Parser,
 }
 
@@ -39,6 +40,7 @@ impl App {
             error: None,
             terminal_mode: TerminalMode::Insert,
             active_port: String::new(),
+            current_baud: 0,
             parser: vt100::Parser::new(24, 80, 0),
         }
     }
@@ -57,6 +59,7 @@ impl App {
             error,
             terminal_mode: TerminalMode::Insert,
             active_port: port_name.to_string(),
+            current_baud: baud,
             parser: vt100::Parser::new(24, 80, 0),
         }
     }
@@ -80,6 +83,7 @@ impl App {
                     self.error = None;
                     self.parser = vt100::Parser::new(24, 80, 0);
                     self.active_port = port.port_name.clone();
+                    self.current_baud = 115200;
                     self.connection = Some((tx, rx));
                     self.screen = Screen::Terminal;
                     self.terminal_mode = TerminalMode::Insert;
