@@ -225,7 +225,7 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
             let mut buf = [0u8; 4];
             Some(c.encode_utf8(&mut buf).as_bytes().to_vec())
         }
-        KeyCode::Enter => Some(vec![b'\r', b'\n']),
+        KeyCode::Enter => Some(vec![b'\r']),
         KeyCode::Backspace => Some(vec![b'\x7f']),
         KeyCode::Tab => Some(vec![b'\t']),
         KeyCode::Esc => Some(vec![b'\x1b']),
