@@ -109,6 +109,10 @@ impl App {
         }
     }
 
+    pub fn clear_screen(&mut self) {
+        self.parser = vt100::Parser::new(24, 80, 0);
+    }
+
     pub fn poll_serial(&mut self) {
         if let Some((_, rx)) = &self.connection {
             loop {

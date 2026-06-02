@@ -215,6 +215,8 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
             " CONTROL ".reversed().bold(),
             "  a/i ".bold(),
             "insert mode  ".into(),
+            "c ".bold(),
+            "clear  ".into(),
             "q ".bold(),
             "disconnect & quit ".into(),
         ])),
@@ -283,6 +285,9 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Char('a') | KeyCode::Char('i') => {
             app.terminal_mode = TerminalMode::Insert;
+        }
+        KeyCode::Char('c') => {
+            app.clear_screen();
         }
         KeyCode::Char('q') => {
             app.disconnect();
