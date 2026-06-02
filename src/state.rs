@@ -109,6 +109,33 @@ impl App {
         }
     }
 
+    pub fn change_baud(&mut self, delta: i32) {
+        const RATES: &[u32] = &[9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
+        let current = RATES
+            .iter()
+            .position(|&r| r == self.current_baud)
+            .unwrap_or(4);
+        let next = (current as i32 + delta).clamp(0, RATES.len() as i32 - 1) as usize;
+        let new_baud = RATES[next];
+        if new_baud == self.current_baud {
+            return;
+        }
+        if let Some((tx, _)) = &self.connection {
+            let _ = tx.send(Command::Disconnect);
+        }
+        self.connection = None;
+        match serial::open(&self.active_port, new_baud) {
+            Ok((tx, rx)) => {
+                self.current_baud = new_baud;
+                self.connection = Some((tx, rx));
+            }
+            Err(e) => {
+                self.error = Some(e.to_string());
+                self.screen = Screen::PortSelect;
+            }
+        }
+    }
+
     pub fn clear_screen(&mut self) {
         self.parser = vt100::Parser::new(24, 80, 0);
     }

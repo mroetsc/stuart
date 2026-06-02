@@ -217,6 +217,8 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
             "insert mode  ".into(),
             "c ".bold(),
             "clear  ".into(),
+            "+/- ".bold(),
+            "baud  ".into(),
             "q ".bold(),
             "disconnect & quit ".into(),
         ])),
@@ -289,6 +291,8 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
         KeyCode::Char('c') => {
             app.clear_screen();
         }
+        KeyCode::Char('+') => app.change_baud(1),
+        KeyCode::Char('-') => app.change_baud(-1),
         KeyCode::Char('q') => {
             app.disconnect();
             app.exit = true;
