@@ -1,4 +1,7 @@
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+    KeyModifiers, MouseEventKind,
+};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
@@ -13,6 +16,13 @@ use std::time::Duration;
 use crate::state::{App, Screen, TerminalMode};
 
 pub fn run(app: &mut App, terminal: &mut DefaultTerminal) -> io::Result<()> {
+    crossterm::execute!(std::io::stdout(), EnableMouseCapture)?;
+    let result = run_inner(app, terminal);
+    crossterm::execute!(std::io::stdout(), DisableMouseCapture)?;
+    result
+}
+
+fn run_inner(app: &mut App, terminal: &mut DefaultTerminal) -> io::Result<()> {
     while !app.exit {
         terminal.draw(|frame| draw(app, frame))?;
         app.poll_serial();
@@ -160,50 +170,78 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
     };
 
     app.resize_parser(inner.height, inner.width);
+    app.viewport_height = inner.height as usize;
 
-    let title = format!("stuart on {} @ {}", app.active_port, app.current_baud);
+    let all_lines: Vec<&str> = app
+        .scrollback
+        .iter()
+        .flat_map(|l| l.split_inclusive('\n'))
+        .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
+        .collect();
+    let total = all_lines.len();
+    let height = inner.height as usize;
+    let max_offset = total.saturating_sub(height);
+    let at_top = app.scroll_offset >= max_offset && max_offset > 0;
+    let scrolling = app.scroll_offset > 0;
+
+    let scroll_indicator = if at_top {
+        " [scrollback TOP] ".to_string()
+    } else if scrolling {
+        format!(" [scrollback +{}] ", app.scroll_offset)
+    } else {
+        String::new()
+    };
+    let title = format!(
+        "stuart on {} @ {}{}",
+        app.active_port, app.current_baud, scroll_indicator
+    );
     let block = Block::new().borders(Borders::ALL).title(title);
     frame.render_widget(block, output_area);
 
-    let screen = app.parser.screen();
-    let buf = frame.buffer_mut();
-    for row in 0..inner.height {
-        for col in 0..inner.width {
-            if let Some(cell) = screen.cell(row, col) {
-                let ch = cell.contents();
-                if ch.is_empty() {
-                    continue;
+    if scrolling {
+        let end = total.saturating_sub(app.scroll_offset.min(max_offset));
+        let start = end.saturating_sub(height);
+        let visible: Vec<&str> = all_lines[start..end].to_vec();
+        let text = visible.join("\n");
+        let paragraph = Paragraph::new(text);
+        frame.render_widget(paragraph, inner);
+    } else {
+        let screen = app.parser.screen();
+        let buf = frame.buffer_mut();
+        for row in 0..inner.height {
+            for col in 0..inner.width {
+                if let Some(cell) = screen.cell(row, col) {
+                    let ch = cell.contents();
+                    if ch.is_empty() {
+                        continue;
+                    }
+                    let mut style = Style::default();
+                    style = style.fg(vt100_color(cell.fgcolor()));
+                    style = style.bg(vt100_color(cell.bgcolor()));
+                    if cell.bold() {
+                        style = style.add_modifier(Modifier::BOLD);
+                    }
+                    if cell.italic() {
+                        style = style.add_modifier(Modifier::ITALIC);
+                    }
+                    if cell.underline() {
+                        style = style.add_modifier(Modifier::UNDERLINED);
+                    }
+                    if cell.inverse() {
+                        style = style.add_modifier(Modifier::REVERSED);
+                    }
+                    buf[(inner.x + col, inner.y + row)]
+                        .set_symbol(ch)
+                        .set_style(style);
                 }
-                let mut style = Style::default();
-
-                style = style.fg(vt100_color(cell.fgcolor()));
-                style = style.bg(vt100_color(cell.bgcolor()));
-
-                if cell.bold() {
-                    style = style.add_modifier(Modifier::BOLD);
-                }
-                if cell.italic() {
-                    style = style.add_modifier(Modifier::ITALIC);
-                }
-                if cell.underline() {
-                    style = style.add_modifier(Modifier::UNDERLINED);
-                }
-                if cell.inverse() {
-                    style = style.add_modifier(Modifier::REVERSED);
-                }
-
-                buf[(inner.x + col, inner.y + row)]
-                    .set_symbol(ch)
-                    .set_style(style);
             }
         }
+        let (crow, ccol) = screen.cursor_position();
+        frame.set_cursor_position((
+            (inner.x + ccol).min(inner.x + inner.width - 1),
+            (inner.y + crow).min(inner.y + inner.height - 1),
+        ));
     }
-
-    let (crow, ccol) = screen.cursor_position();
-    frame.set_cursor_position((
-        (inner.x + ccol).min(inner.x + inner.width - 1),
-        (inner.y + crow).min(inner.y + inner.height - 1),
-    ));
 
     let help = match app.terminal_mode {
         TerminalMode::Insert => Paragraph::new(Line::from(vec![
@@ -217,6 +255,8 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
             "insert mode  ".into(),
             "f ".bold(),
             "flush scrollback  ".into(),
+            "Up/Down ".bold(),
+            "scroll scrollback  ".into(),
             "c ".bold(),
             "copy  ".into(),
             "+/- ".bold(),
@@ -238,19 +278,32 @@ fn vt100_color(color: vt100::Color) -> Color {
 }
 
 fn handle_events(app: &mut App) -> io::Result<()> {
-    if let Event::Key(KeyEvent {
-        code,
-        kind: KeyEventKind::Press,
-        modifiers,
-        ..
-    }) = event::read()?
-    {
-        match app.screen {
+    match event::read()? {
+        Event::Key(KeyEvent {
+            code,
+            kind: KeyEventKind::Press,
+            modifiers,
+            ..
+        }) => match app.screen {
             Screen::PortSelect => handle_port_select_key(app, code),
             Screen::Terminal => handle_terminal_key(app, code, modifiers),
+        },
+        Event::Mouse(mouse) => {
+            if matches!(app.screen, Screen::Terminal) {
+                handle_mouse(app, mouse);
+            }
         }
+        _ => {}
     }
     Ok(())
+}
+
+fn handle_mouse(app: &mut App, mouse: crossterm::event::MouseEvent) {
+    match mouse.kind {
+        MouseEventKind::ScrollUp => app.scroll(3),
+        MouseEventKind::ScrollDown => app.scroll(-3),
+        _ => {}
+    }
 }
 
 fn handle_port_select_key(app: &mut App, code: KeyCode) {
@@ -288,8 +341,12 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
 fn handle_control_mode(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Char('a') | KeyCode::Char('i') => {
+            app.scroll_to_bottom();
             app.terminal_mode = TerminalMode::Insert;
         }
+        KeyCode::Up => app.scroll(3),
+        KeyCode::Down => app.scroll(-3),
+        KeyCode::Esc => app.scroll_to_bottom(),
         KeyCode::Char('f') => {
             app.flush_screen();
         }
