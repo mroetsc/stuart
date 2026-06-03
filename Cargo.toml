@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+arboard = { version = "3.6.1", features = ["wayland-data-control"] }
 clap = { version = "4.6.1", features = ["color", "usage", "help", "suggestions", "error-context", "derive"] }
 crossterm = "0.29.0"
 ratatui = "0.30.0"
