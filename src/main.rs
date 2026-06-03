@@ -1,6 +1,7 @@
 use std::io::stdout;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::{generate, Shell};
 use crossterm::{
     event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
     execute,
@@ -21,10 +22,23 @@ struct Cli {
 
     #[arg(help = "The port to open")]
     port: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "SHELL",
+        help = "Generate shell completions",
+        hide = true
+    )]
+    completions: Option<Shell>,
 }
 
 fn main() {
     let args = Cli::parse();
+
+    if let Some(shell) = args.completions {
+        generate(shell, &mut Cli::command(), "stuart", &mut std::io::stdout());
+        return;
+    }
 
     let enhanced = matches!(supports_keyboard_enhancement(), Ok(true));
 
