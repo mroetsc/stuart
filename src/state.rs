@@ -26,8 +26,13 @@ pub struct App {
     pub active_port: String,
     pub current_baud: u32,
     pub parser: vt100::Parser,
+    pub scrollback: Vec<String>,
+    pub scroll_offset: usize,
+    pub viewport_height: usize,
     clipboard: Option<arboard::Clipboard>,
 }
+
+const MAX_SCROLLBACK: usize = 10000;
 
 impl App {
     pub fn new() -> Self {
@@ -43,6 +48,9 @@ impl App {
             active_port: String::new(),
             current_baud: 0,
             parser: vt100::Parser::new(24, 80, 0),
+            scrollback: Vec::new(),
+            scroll_offset: 0,
+            viewport_height: 24,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -63,6 +71,9 @@ impl App {
             active_port: port_name.to_string(),
             current_baud: baud,
             parser: vt100::Parser::new(24, 80, 0),
+            scrollback: Vec::new(),
+            scroll_offset: 0,
+            viewport_height: 24,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -85,6 +96,8 @@ impl App {
                 Ok((tx, rx)) => {
                     self.error = None;
                     self.parser = vt100::Parser::new(24, 80, 0);
+                    self.scrollback.clear();
+                    self.scroll_offset = 0;
                     self.active_port = port.port_name.clone();
                     self.current_baud = 115200;
                     self.connection = Some((tx, rx));
@@ -138,27 +151,18 @@ impl App {
     }
 
     pub fn copy_to_clipboard(&mut self) {
-        let screen = self.parser.screen();
-        let (rows, cols) = (screen.size().0, screen.size().1);
-        let mut lines: Vec<String> = Vec::new();
-        for row in 0..rows {
-            let mut line = String::new();
-            for col in 0..cols {
-                if let Some(cell) = screen.cell(row, col) {
-                    let ch = cell.contents();
-                    if ch.is_empty() {
-                        line.push(' ');
-                    } else {
-                        line.push_str(ch);
-                    }
-                }
-            }
-            lines.push(line.trim_end().to_string());
-        }
-        let start = lines.iter().position(|l| !l.is_empty()).unwrap_or(0);
+        let lines: Vec<String> = self
+            .scrollback
+            .iter()
+            .flat_map(|l| {
+                l.split_inclusive('\n')
+                    .map(|s| s.trim_end_matches('\n').to_string())
+            })
+            .collect();
+        let start = lines.iter().position(|l| !l.trim().is_empty()).unwrap_or(0);
         let end = lines
             .iter()
-            .rposition(|l| !l.is_empty())
+            .rposition(|l| !l.trim().is_empty())
             .map(|i| i + 1)
             .unwrap_or(0);
         let text = lines[start..end].join("\n");
@@ -167,8 +171,26 @@ impl App {
         }
     }
 
+    pub fn scroll(&mut self, delta: i32) {
+        let line_count: usize = self
+            .scrollback
+            .iter()
+            .flat_map(|l| l.split_inclusive('\n'))
+            .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
+            .count();
+        let max_offset = line_count.saturating_sub(self.viewport_height);
+        let new_offset = self.scroll_offset as i32 + delta;
+        self.scroll_offset = new_offset.clamp(0, max_offset as i32) as usize;
+    }
+
+    pub fn scroll_to_bottom(&mut self) {
+        self.scroll_offset = 0;
+    }
+
     pub fn flush_screen(&mut self) {
         self.parser = vt100::Parser::new(24, 80, 0);
+        self.scrollback.clear();
+        self.scroll_offset = 0;
     }
 
     pub fn poll_serial(&mut self) {
@@ -177,6 +199,22 @@ impl App {
                 match rx.try_recv() {
                     Ok(SerialEvent::Data(bytes)) => {
                         self.parser.process(&bytes);
+                        {
+                            let stripped = strip_ansi_escapes::strip(&bytes);
+                            let text = String::from_utf8_lossy(&stripped);
+                            for chunk in text.split_inclusive('\n') {
+                                if let Some(last) = self.scrollback.last_mut()
+                                    && !last.ends_with('\n') {
+                                        last.push_str(chunk);
+                                        continue;
+                                    }
+                                self.scrollback.push(chunk.to_string());
+                            }
+                            if self.scrollback.len() > MAX_SCROLLBACK {
+                                self.scrollback
+                                    .drain(..self.scrollback.len() - MAX_SCROLLBACK);
+                            }
+                        }
                     }
                     Ok(SerialEvent::Error(e)) => {
                         self.error = Some(e);
