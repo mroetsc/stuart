@@ -215,8 +215,8 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
             " CONTROL ".reversed().bold(),
             "  a/i ".bold(),
             "insert mode  ".into(),
-            "c ".bold(),
-            "clear  ".into(),
+            "f ".bold(),
+            "flush scrollback  ".into(),
             "+/- ".bold(),
             "baud  ".into(),
             "q ".bold(),
@@ -288,8 +288,8 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
         KeyCode::Char('a') | KeyCode::Char('i') => {
             app.terminal_mode = TerminalMode::Insert;
         }
-        KeyCode::Char('c') => {
-            app.clear_screen();
+        KeyCode::Char('f') => {
+            app.flush_screen();
         }
         KeyCode::Char('+') => app.change_baud(1),
         KeyCode::Char('-') => app.change_baud(-1),

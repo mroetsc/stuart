@@ -134,7 +134,7 @@ impl App {
         }
     }
 
-    pub fn clear_screen(&mut self) {
+    pub fn flush_screen(&mut self) {
         self.parser = vt100::Parser::new(24, 80, 0);
     }
 
