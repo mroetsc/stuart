@@ -120,10 +120,8 @@ impl App {
         if new_baud == self.current_baud {
             return;
         }
-        if let Some((tx, _)) = &self.connection {
-            let _ = tx.send(Command::Disconnect);
-        }
         self.connection = None;
+        std::thread::sleep(std::time::Duration::from_millis(100));
         match serial::open(&self.active_port, new_baud) {
             Ok((tx, rx)) => {
                 self.current_baud = new_baud;
