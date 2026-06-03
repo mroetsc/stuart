@@ -162,9 +162,57 @@ fn draw_help_bar(frame: &mut Frame, area: Rect) {
     frame.render_widget(help, area);
 }
 
+fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
+    let scroll_indicator = {
+        let line_count: usize = app
+            .scrollback
+            .iter()
+            .flat_map(|l| l.split_inclusive('\n'))
+            .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
+            .count();
+        let max_offset = line_count.saturating_sub(app.viewport_height);
+        let at_top = app.scroll_offset >= max_offset && max_offset > 0;
+        if at_top {
+            " [scrollback TOP] ".to_string()
+        } else if app.scroll_offset > 0 {
+            format!(" [scrollback +{}] ", app.scroll_offset)
+        } else {
+            String::new()
+        }
+    };
+
+    let block = Block::new().borders(Borders::ALL);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let [left_area, right_area] = Layout::horizontal([
+        Constraint::Min(0),
+        Constraint::Length(scroll_indicator.len() as u16),
+    ])
+    .areas(inner);
+
+    let left = Paragraph::new(Line::from(vec![
+        " stuart ".bold(),
+        "on ".into(),
+        app.active_port.clone().bold(),
+        " @ ".into(),
+        app.current_baud.to_string().bold(),
+    ]));
+    frame.render_widget(left, left_area);
+
+    if !scroll_indicator.is_empty() {
+        let right = Paragraph::new(Line::from(scroll_indicator.bold()));
+        frame.render_widget(right, right_area);
+    }
+}
+
 fn draw_terminal(app: &mut App, frame: &mut Frame) {
-    let [output_area, help_area] =
-        Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(frame.area());
+    let [info_area, output_area, help_area] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .areas(frame.area());
 
     let inner = Rect {
         x: output_area.x + 1,
@@ -176,6 +224,8 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
     app.resize_parser(inner.height, inner.width);
     app.viewport_height = inner.height as usize;
 
+    draw_terminal_info(app, frame, info_area);
+
     let all_lines: Vec<&str> = app
         .scrollback
         .iter()
@@ -185,21 +235,9 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
     let total = all_lines.len();
     let height = inner.height as usize;
     let max_offset = total.saturating_sub(height);
-    let at_top = app.scroll_offset >= max_offset && max_offset > 0;
     let scrolling = app.scroll_offset > 0;
 
-    let scroll_indicator = if at_top {
-        " [scrollback TOP] ".to_string()
-    } else if scrolling {
-        format!(" [scrollback +{}] ", app.scroll_offset)
-    } else {
-        String::new()
-    };
-    let title = format!(
-        "stuart on {} @ {}{}",
-        app.active_port, app.current_baud, scroll_indicator
-    );
-    let block = Block::new().borders(Borders::ALL).title(title);
+    let block = Block::new().borders(Borders::ALL);
     frame.render_widget(block, output_area);
 
     if scrolling {
