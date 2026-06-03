@@ -217,6 +217,8 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
             "insert mode  ".into(),
             "f ".bold(),
             "flush scrollback  ".into(),
+            "c ".bold(),
+            "copy  ".into(),
             "+/- ".bold(),
             "baud  ".into(),
             "q ".bold(),
@@ -290,6 +292,9 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
         }
         KeyCode::Char('f') => {
             app.flush_screen();
+        }
+        KeyCode::Char('c') => {
+            app.copy_to_clipboard();
         }
         KeyCode::Char('+') => app.change_baud(1),
         KeyCode::Char('-') => app.change_baud(-1),

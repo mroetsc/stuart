@@ -26,6 +26,7 @@ pub struct App {
     pub active_port: String,
     pub current_baud: u32,
     pub parser: vt100::Parser,
+    clipboard: Option<arboard::Clipboard>,
 }
 
 impl App {
@@ -42,6 +43,7 @@ impl App {
             active_port: String::new(),
             current_baud: 0,
             parser: vt100::Parser::new(24, 80, 0),
+            clipboard: arboard::Clipboard::new().ok(),
         }
     }
 
@@ -61,6 +63,7 @@ impl App {
             active_port: port_name.to_string(),
             current_baud: baud,
             parser: vt100::Parser::new(24, 80, 0),
+            clipboard: arboard::Clipboard::new().ok(),
         }
     }
 
@@ -131,6 +134,36 @@ impl App {
                 self.error = Some(e.to_string());
                 self.screen = Screen::PortSelect;
             }
+        }
+    }
+
+    pub fn copy_to_clipboard(&mut self) {
+        let screen = self.parser.screen();
+        let (rows, cols) = (screen.size().0, screen.size().1);
+        let mut lines: Vec<String> = Vec::new();
+        for row in 0..rows {
+            let mut line = String::new();
+            for col in 0..cols {
+                if let Some(cell) = screen.cell(row, col) {
+                    let ch = cell.contents();
+                    if ch.is_empty() {
+                        line.push(' ');
+                    } else {
+                        line.push_str(ch);
+                    }
+                }
+            }
+            lines.push(line.trim_end().to_string());
+        }
+        let start = lines.iter().position(|l| !l.is_empty()).unwrap_or(0);
+        let end = lines
+            .iter()
+            .rposition(|l| !l.is_empty())
+            .map(|i| i + 1)
+            .unwrap_or(0);
+        let text = lines[start..end].join("\n");
+        if let Some(clipboard) = &mut self.clipboard {
+            let _ = clipboard.set_text(text);
         }
     }
 
