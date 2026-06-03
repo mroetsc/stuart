@@ -1,6 +1,6 @@
 use crossterm::event::{
-    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
-    KeyModifiers, MouseEventKind,
+    self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+    Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind,
 };
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -16,9 +16,13 @@ use std::time::Duration;
 use crate::state::{App, Screen, TerminalMode};
 
 pub fn run(app: &mut App, terminal: &mut DefaultTerminal) -> io::Result<()> {
-    crossterm::execute!(std::io::stdout(), EnableMouseCapture)?;
+    crossterm::execute!(std::io::stdout(), EnableMouseCapture, EnableBracketedPaste)?;
     let result = run_inner(app, terminal);
-    crossterm::execute!(std::io::stdout(), DisableMouseCapture)?;
+    crossterm::execute!(
+        std::io::stdout(),
+        DisableMouseCapture,
+        DisableBracketedPaste
+    )?;
     result
 }
 
@@ -206,6 +210,7 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
         let paragraph = Paragraph::new(text);
         frame.render_widget(paragraph, inner);
     } else {
+        // render live vt100 screen
         let screen = app.parser.screen();
         let buf = frame.buffer_mut();
         for row in 0..inner.height {
@@ -254,9 +259,7 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
             "  a/i ".bold(),
             "insert mode  ".into(),
             "f ".bold(),
-            "flush scrollback  ".into(),
-            "Up/Down ".bold(),
-            "scroll scrollback  ".into(),
+            "flush  ".into(),
             "c ".bold(),
             "copy  ".into(),
             "+/- ".bold(),
@@ -291,6 +294,11 @@ fn handle_events(app: &mut App) -> io::Result<()> {
         Event::Mouse(mouse) => {
             if matches!(app.screen, Screen::Terminal) {
                 handle_mouse(app, mouse);
+            }
+        }
+        Event::Paste(text) => {
+            if matches!(app.screen, Screen::Terminal) {
+                app.send_bytes(text.into_bytes());
             }
         }
         _ => {}
