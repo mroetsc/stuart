@@ -163,7 +163,9 @@ fn draw_help_bar(frame: &mut Frame, area: Rect) {
 }
 
 fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
-    let scroll_indicator = {
+    let (right_str, right_color): (String, Color) = if app.connection.is_none() && app.hold {
+        (" reconnecting… ".to_string(), Color::Yellow)
+    } else {
         let line_count: usize = app
             .scrollback
             .iter()
@@ -173,11 +175,11 @@ fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
         let max_offset = line_count.saturating_sub(app.viewport_height);
         let at_top = app.scroll_offset >= max_offset && max_offset > 0;
         if at_top {
-            " [scrollback TOP] ".to_string()
+            (" scrollback TOP ".to_string(), Color::Reset)
         } else if app.scroll_offset > 0 {
-            format!(" [scrollback +{}] ", app.scroll_offset)
+            (format!(" scrollback +{} ", app.scroll_offset), Color::Reset)
         } else {
-            String::new()
+            (String::new(), Color::Reset)
         }
     };
 
@@ -187,7 +189,7 @@ fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
 
     let [left_area, right_area] = Layout::horizontal([
         Constraint::Min(0),
-        Constraint::Length(scroll_indicator.len() as u16),
+        Constraint::Length(right_str.len() as u16),
     ])
     .areas(inner);
 
@@ -200,8 +202,9 @@ fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
     ]));
     frame.render_widget(left, left_area);
 
-    if !scroll_indicator.is_empty() {
-        let right = Paragraph::new(Line::from(scroll_indicator.bold()));
+    if !right_str.is_empty() {
+        let right =
+            Paragraph::new(Line::from(right_str.bold()).style(Style::default().fg(right_color)));
         frame.render_widget(right, right_area);
     }
 }
