@@ -85,6 +85,11 @@ impl App {
         }
     }
 
+    pub fn refresh_ports(&mut self) {
+        self.ports = serialport::available_ports().unwrap_or_default();
+        self.selected = self.selected.min(self.ports.len().saturating_sub(1));
+    }
+
     pub fn resize_parser(&mut self, rows: u16, cols: u16) {
         self.parser.screen_mut().set_size(rows, cols);
     }

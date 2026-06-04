@@ -155,6 +155,8 @@ fn draw_help_bar(frame: &mut Frame, area: Rect) {
         "select  ".into(),
         "Enter ".bold(),
         "open  ".into(),
+        "r ".bold(),
+        "refresh  ".into(),
         "q ".bold(),
         "quit ".into(),
     ]))
@@ -358,6 +360,7 @@ fn handle_mouse(app: &mut App, mouse: crossterm::event::MouseEvent) {
 fn handle_port_select_key(app: &mut App, code: KeyCode) {
     match code {
         KeyCode::Char('q') => app.exit = true,
+        KeyCode::Char('r') => app.refresh_ports(),
         KeyCode::Up => app.move_selection(-1),
         KeyCode::Down => app.move_selection(1),
         KeyCode::Enter => app.open_selected(),
