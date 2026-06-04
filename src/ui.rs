@@ -53,10 +53,13 @@ fn draw(app: &mut App, frame: &mut Frame) {
 }
 
 fn draw_port_select(app: &App, frame: &mut Frame) {
+    let info_height = help_bar_height(info_bar_spans(app), frame.area().width).0;
+    let help_height = help_bar_height(port_select_help_spans(), frame.area().width).0;
+
     let [info_area, main_area, help_area] = Layout::vertical([
-        Constraint::Length(3),
+        Constraint::Length(info_height),
         Constraint::Min(0),
-        Constraint::Length(3),
+        Constraint::Length(help_height),
     ])
     .areas(frame.area());
 
@@ -181,91 +184,155 @@ fn help_spans(entries: &[(&'static str, &'static str)]) -> Vec<Span<'static>> {
     spans
 }
 
-fn draw_help_bar(frame: &mut Frame, area: Rect) {
-    let spans = help_spans(&[
+fn wrap_spans_to_lines(spans: Vec<Span<'static>>, width: u16) -> Vec<Line<'static>> {
+    let inner_width = width.saturating_sub(2) as usize;
+    let mut lines: Vec<Line> = Vec::new();
+    let mut current: Vec<Span> = Vec::new();
+    let mut current_width: usize = 0;
+
+    for span in spans {
+        let span_width = span.width();
+        if current_width + span_width > inner_width && !current.is_empty() {
+            lines.push(Line::from(std::mem::take(&mut current)));
+            current_width = 0;
+        }
+        current_width += span_width;
+        current.push(span);
+    }
+    if !current.is_empty() {
+        lines.push(Line::from(current));
+    }
+    if lines.is_empty() {
+        lines.push(Line::default());
+    }
+    lines
+}
+
+fn help_bar_height(spans: Vec<Span<'static>>, width: u16) -> (u16, Vec<Line<'static>>) {
+    let lines = wrap_spans_to_lines(spans, width);
+    let height = lines.len() as u16 + 2;
+    (height, lines)
+}
+
+fn terminal_help_spans(mode: &TerminalMode) -> Vec<Span<'static>> {
+    match mode {
+        TerminalMode::Insert => {
+            let mut spans = vec![
+                Span::styled(
+                    " INSERT ",
+                    Style::default().fg(Color::Black).bg(Color::Green).bold(),
+                ),
+                sep_span(),
+            ];
+            spans.extend(help_spans(&[("Ctrl+Esc", "control mode")]));
+            spans
+        }
+        TerminalMode::Control => {
+            let mut spans = vec![
+                Span::styled(
+                    " CONTROL ",
+                    Style::default().fg(Color::Black).bg(Color::Blue).bold(),
+                ),
+                sep_span(),
+            ];
+            spans.extend(help_spans(&[
+                ("a", "insert"),
+                ("↑↓", "scroll"),
+                ("Esc", "bottom"),
+                ("f", "flush"),
+                ("c", "copy"),
+                ("+/-", "baud"),
+                ("Del", "port select"),
+                ("q", "quit"),
+            ]));
+            spans
+        }
+    }
+}
+
+fn port_select_help_spans() -> Vec<Span<'static>> {
+    help_spans(&[
         ("↑↓", "select"),
         ("Enter", "open"),
         ("r", "refresh"),
         ("q", "quit"),
-    ]);
-    let help = Paragraph::new(Line::from(spans)).block(Block::new().borders(Borders::ALL));
+    ])
+}
+
+fn draw_help_bar(frame: &mut Frame, area: Rect) {
+    let (_, lines) = help_bar_height(port_select_help_spans(), area.width);
+    let help = Paragraph::new(Text::from(lines)).block(Block::new().borders(Borders::ALL));
     frame.render_widget(help, area);
 }
 
-fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
-    let block = Block::new().borders(Borders::ALL);
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    let right_spans: Vec<Span> =
-        if app.connection.is_none() && app.hold && app.screen == crate::state::Screen::Terminal {
-            vec![
-                sep_span(),
-                Span::styled(" reconnecting… ", Style::default().fg(Color::Yellow).bold()),
-            ]
-        } else {
-            let line_count: usize = app
-                .scrollback
-                .iter()
-                .flat_map(|l| l.split_inclusive('\n'))
-                .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
-                .count();
-            let max_offset = line_count.saturating_sub(app.viewport_height);
-            let at_top = app.scroll_offset >= max_offset && max_offset > 0;
-            if at_top {
-                vec![
-                    sep_span(),
-                    Span::styled(" scrollback TOP ", Style::default().fg(Color::DarkGray)),
-                ]
-            } else if app.scroll_offset > 0 {
-                vec![
-                    sep_span(),
-                    Span::styled(
-                        format!(" scrollback +{} ", app.scroll_offset),
-                        Style::default().fg(Color::DarkGray),
-                    ),
-                ]
-            } else {
-                vec![]
-            }
-        };
-
-    let right_width: u16 = right_spans.iter().map(|s| s.width() as u16).sum();
-
-    let [left_area, right_area] =
-        Layout::horizontal([Constraint::Min(0), Constraint::Length(right_width)]).areas(inner);
-
-    let left = Paragraph::new(Line::from(
-        if app.active_port.is_empty() || app.screen == crate::state::Screen::PortSelect {
-            vec![Span::styled(" stuart ", Style::default().bold())
+fn info_bar_spans(app: &App) -> Vec<Span<'static>> {
+    let mut spans = if app.active_port.is_empty() || app.screen == crate::state::Screen::PortSelect
+    {
+        vec![Span::styled(" stuart ", Style::default().bold())
+            .bg(Color::Rgb(211, 69, 21))
+            .fg(Color::Gray)]
+    } else {
+        vec![
+            Span::styled(" stuart ", Style::default().bold())
                 .bg(Color::Rgb(211, 69, 21))
-                .fg(Color::Gray)]
-        } else {
-            vec![
-                Span::styled(" stuart ", Style::default().bold())
-                    .bg(Color::Rgb(211, 69, 21))
-                    .fg(Color::Gray),
-                sep_span(),
-                Span::styled(" on", Style::default().fg(Color::DarkGray)),
-                Span::styled(format!(" {} ", app.active_port), Style::default().bold()),
-                sep_span(),
-                Span::styled(format!(" {} ", app.current_baud), Style::default().bold()),
-                Span::styled("baud rate", Style::default().fg(Color::DarkGray)),
-            ]
-        },
-    ));
-    frame.render_widget(left, left_area);
+                .fg(Color::Gray),
+            sep_span(),
+            Span::styled(" on", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!(" {} ", app.active_port), Style::default().bold()),
+            sep_span(),
+            Span::styled(format!(" {} ", app.current_baud), Style::default().bold()),
+            Span::styled("baud rate", Style::default().fg(Color::DarkGray)),
+        ]
+    };
 
-    if !right_spans.is_empty() {
-        frame.render_widget(Paragraph::new(Line::from(right_spans)), right_area);
+    if app.connection.is_none() && app.hold && app.screen == crate::state::Screen::Terminal {
+        spans.push(sep_span());
+        spans.push(Span::styled(
+            " reconnecting… ",
+            Style::default().fg(Color::Yellow).bold(),
+        ));
+    } else {
+        let line_count: usize = app
+            .scrollback
+            .iter()
+            .flat_map(|l| l.split_inclusive('\n'))
+            .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
+            .count();
+        let max_offset = line_count.saturating_sub(app.viewport_height);
+        let at_top = app.scroll_offset >= max_offset && max_offset > 0;
+        if at_top {
+            spans.push(sep_span());
+            spans.push(Span::styled(
+                " scrollback TOP ",
+                Style::default().fg(Color::DarkGray),
+            ));
+        } else if app.scroll_offset > 0 {
+            spans.push(sep_span());
+            spans.push(Span::styled(
+                format!(" scrollback +{} ", app.scroll_offset),
+                Style::default().fg(Color::DarkGray),
+            ));
+        }
     }
+
+    spans
+}
+
+fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
+    let (_, lines) = help_bar_height(info_bar_spans(app), area.width);
+    let info = Paragraph::new(Text::from(lines)).block(Block::new().borders(Borders::ALL));
+    frame.render_widget(info, area);
 }
 
 fn draw_terminal(app: &mut App, frame: &mut Frame) {
+    let info_height = help_bar_height(info_bar_spans(app), frame.area().width).0;
+    let help_height =
+        help_bar_height(terminal_help_spans(&app.terminal_mode), frame.area().width).0;
+
     let [info_area, output_area, help_area] = Layout::vertical([
-        Constraint::Length(3),
+        Constraint::Length(info_height),
         Constraint::Min(0),
-        Constraint::Length(3),
+        Constraint::Length(help_height),
     ])
     .areas(frame.area());
 
@@ -341,40 +408,8 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
         ));
     }
 
-    let help = match app.terminal_mode {
-        TerminalMode::Insert => {
-            let mut spans = vec![
-                Span::styled(
-                    " INSERT ",
-                    Style::default().fg(Color::Black).bg(Color::Green).bold(),
-                ),
-                sep_span(),
-            ];
-            spans.extend(help_spans(&[("Ctrl+Esc", "control mode")]));
-            Paragraph::new(Line::from(spans))
-        }
-        TerminalMode::Control => {
-            let mut spans = vec![
-                Span::styled(
-                    " CONTROL ",
-                    Style::default().fg(Color::Black).bg(Color::Blue).bold(),
-                ),
-                sep_span(),
-            ];
-            spans.extend(help_spans(&[
-                ("a/i", "insert"),
-                ("↑↓", "scroll"),
-                ("Esc", "bottom"),
-                ("f", "flush"),
-                ("c", "copy"),
-                ("+/-", "baud"),
-                ("Del", "port select"),
-                ("q", "quit"),
-            ]));
-            Paragraph::new(Line::from(spans))
-        }
-    }
-    .block(Block::new().borders(Borders::ALL));
+    let (_, help_lines) = help_bar_height(terminal_help_spans(&app.terminal_mode), help_area.width);
+    let help = Paragraph::new(Text::from(help_lines)).block(Block::new().borders(Borders::ALL));
     frame.render_widget(help, help_area);
 }
 
