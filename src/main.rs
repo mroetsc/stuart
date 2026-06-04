@@ -25,6 +25,12 @@ struct Cli {
 
     #[arg(
         long,
+        help = "Hold the terminal open and reconnect if the device disconnects"
+    )]
+    hold: bool,
+
+    #[arg(
+        long,
         value_name = "SHELL",
         help = "Generate shell completions",
         hide = true
@@ -53,8 +59,8 @@ fn main() {
     }
 
     let mut app = match args.port {
-        Some(port) => App::with_port(&port, args.baud.unwrap_or(115200)),
-        None => App::new(),
+        Some(port) => App::with_port(&port, args.baud.unwrap_or(115200), args.hold),
+        None => App::new(args.hold),
     };
 
     ui::run(&mut app, &mut terminal).unwrap();

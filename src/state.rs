@@ -1,5 +1,6 @@
 use serialport::SerialPortInfo;
 use std::sync::mpsc::{Receiver, Sender};
+use std::time::{Duration, Instant};
 
 use crate::serial::{self, Command, SerialEvent};
 
@@ -29,13 +30,15 @@ pub struct App {
     pub scrollback: Vec<String>,
     pub scroll_offset: usize,
     pub viewport_height: usize,
+    pub hold: bool,
+    pub reconnect_at: Option<Instant>,
     clipboard: Option<arboard::Clipboard>,
 }
 
 const MAX_SCROLLBACK: usize = 10000;
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(hold: bool) -> Self {
         let ports = serialport::available_ports().unwrap_or_default();
         Self {
             screen: Screen::PortSelect,
@@ -51,11 +54,13 @@ impl App {
             scrollback: Vec::new(),
             scroll_offset: 0,
             viewport_height: 24,
+            hold,
+            reconnect_at: None,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
 
-    pub fn with_port(port_name: &str, baud: u32) -> Self {
+    pub fn with_port(port_name: &str, baud: u32, hold: bool) -> Self {
         let (connection, error, screen) = match serial::open(port_name, baud) {
             Ok((tx, rx)) => (Some((tx, rx)), None, Screen::Terminal),
             Err(e) => (None, Some(e.to_string()), Screen::PortSelect),
@@ -74,6 +79,8 @@ impl App {
             scrollback: Vec::new(),
             scroll_offset: 0,
             viewport_height: 24,
+            hold,
+            reconnect_at: None,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -194,6 +201,26 @@ impl App {
     }
 
     pub fn poll_serial(&mut self) {
+        if self.connection.is_none() && self.hold && self.screen == Screen::Terminal {
+            if let Some(at) = self.reconnect_at {
+                if Instant::now() >= at {
+                    self.reconnect_at = None;
+                    match serial::open(&self.active_port, self.current_baud) {
+                        Ok((tx, rx)) => {
+                            self.connection = Some((tx, rx));
+                            self.error = None;
+                        }
+                        Err(_) => {
+                            self.reconnect_at =
+                                Some(Instant::now() + Duration::from_secs(1));
+                        }
+                    }
+                }
+            } else {
+                self.reconnect_at = Some(Instant::now() + Duration::from_secs(1));
+            }
+        }
+
         if let Some((_, rx)) = &self.connection {
             loop {
                 match rx.try_recv() {
@@ -217,14 +244,25 @@ impl App {
                         }
                     }
                     Ok(SerialEvent::Error(e)) => {
-                        self.error = Some(e);
                         self.connection = None;
-                        self.screen = Screen::PortSelect;
+                        if self.hold {
+                            self.error = None;
+                            self.reconnect_at =
+                                Some(Instant::now() + Duration::from_secs(1));
+                        } else {
+                            self.error = Some(e);
+                            self.screen = Screen::PortSelect;
+                        }
                         break;
                     }
                     Ok(SerialEvent::Disconnected) => {
                         self.connection = None;
-                        self.screen = Screen::PortSelect;
+                        if self.hold {
+                            self.reconnect_at =
+                                Some(Instant::now() + Duration::from_secs(1));
+                        } else {
+                            self.screen = Screen::PortSelect;
+                        }
                         break;
                     }
                     Err(_) => break,
