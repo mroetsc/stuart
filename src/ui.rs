@@ -5,7 +5,7 @@ use crossterm::event::{
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
-    text::{Line, Text},
+    text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     DefaultTerminal, Frame,
 };
@@ -53,15 +53,20 @@ fn draw(app: &mut App, frame: &mut Frame) {
 }
 
 fn draw_port_select(app: &App, frame: &mut Frame) {
-    let [main_area, help_area] =
-        Layout::vertical([Constraint::Min(0), Constraint::Length(3)]).areas(frame.area());
+    let [info_area, main_area, help_area] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(0),
+        Constraint::Length(3),
+    ])
+    .areas(frame.area());
 
-    let [list_area, info_area] =
+    let [list_area, port_info_area] =
         Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
             .areas(main_area);
 
+    draw_terminal_info(app, frame, info_area);
     draw_port_list(app, frame, list_area);
-    draw_port_info(app, frame, info_area);
+    draw_port_info(app, frame, port_info_area);
     draw_help_bar(frame, help_area);
 }
 
@@ -149,65 +154,110 @@ fn usb_info_text(info: &UsbPortInfo) -> Text<'_> {
     Text::from(lines)
 }
 
+fn key_span(label: &'static str) -> Span<'static> {
+    Span::styled(format!(" {} ", label), Style::default().reversed().bold())
+}
+
+fn action_span(label: &'static str) -> Span<'static> {
+    Span::styled(label, Style::default().fg(Color::DarkGray))
+}
+
+fn sep_span() -> Span<'static> {
+    Span::styled(" │ ", Style::default().fg(Color::DarkGray))
+}
+
+fn help_entry(key: &'static str, action: &'static str) -> [Span<'static>; 4] {
+    [
+        key_span(key),
+        Span::raw(" "),
+        action_span(action),
+        sep_span(),
+    ]
+}
+
+fn help_spans(entries: &[(&'static str, &'static str)]) -> Vec<Span<'static>> {
+    let mut spans: Vec<Span> = entries.iter().flat_map(|(k, a)| help_entry(k, a)).collect();
+    spans.pop();
+    spans
+}
+
 fn draw_help_bar(frame: &mut Frame, area: Rect) {
-    let help = Paragraph::new(Line::from(vec![
-        " ↑↓ ".bold(),
-        "select  ".into(),
-        "Enter ".bold(),
-        "open  ".into(),
-        "r ".bold(),
-        "refresh  ".into(),
-        "q ".bold(),
-        "quit ".into(),
-    ]))
-    .block(Block::new().borders(Borders::ALL));
+    let spans = help_spans(&[
+        ("↑↓", "select"),
+        ("Enter", "open"),
+        ("r", "refresh"),
+        ("q", "quit"),
+    ]);
+    let help = Paragraph::new(Line::from(spans)).block(Block::new().borders(Borders::ALL));
     frame.render_widget(help, area);
 }
 
 fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
-    let (right_str, right_color): (String, Color) = if app.connection.is_none() && app.hold {
-        (" reconnecting… ".to_string(), Color::Yellow)
-    } else {
-        let line_count: usize = app
-            .scrollback
-            .iter()
-            .flat_map(|l| l.split_inclusive('\n'))
-            .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
-            .count();
-        let max_offset = line_count.saturating_sub(app.viewport_height);
-        let at_top = app.scroll_offset >= max_offset && max_offset > 0;
-        if at_top {
-            (" scrollback TOP ".to_string(), Color::Reset)
-        } else if app.scroll_offset > 0 {
-            (format!(" scrollback +{} ", app.scroll_offset), Color::Reset)
-        } else {
-            (String::new(), Color::Reset)
-        }
-    };
-
     let block = Block::new().borders(Borders::ALL);
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let [left_area, right_area] = Layout::horizontal([
-        Constraint::Min(0),
-        Constraint::Length(right_str.len() as u16),
-    ])
-    .areas(inner);
+    let right_spans: Vec<Span> =
+        if app.connection.is_none() && app.hold && app.screen == crate::state::Screen::Terminal {
+            vec![
+                sep_span(),
+                Span::styled(" reconnecting… ", Style::default().fg(Color::Yellow).bold()),
+            ]
+        } else {
+            let line_count: usize = app
+                .scrollback
+                .iter()
+                .flat_map(|l| l.split_inclusive('\n'))
+                .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
+                .count();
+            let max_offset = line_count.saturating_sub(app.viewport_height);
+            let at_top = app.scroll_offset >= max_offset && max_offset > 0;
+            if at_top {
+                vec![
+                    sep_span(),
+                    Span::styled(" scrollback TOP ", Style::default().fg(Color::DarkGray)),
+                ]
+            } else if app.scroll_offset > 0 {
+                vec![
+                    sep_span(),
+                    Span::styled(
+                        format!(" scrollback +{} ", app.scroll_offset),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ]
+            } else {
+                vec![]
+            }
+        };
 
-    let left = Paragraph::new(Line::from(vec![
-        " stuart ".bold(),
-        "on ".into(),
-        app.active_port.clone().bold(),
-        " @ ".into(),
-        app.current_baud.to_string().bold(),
-    ]));
+    let right_width: u16 = right_spans.iter().map(|s| s.width() as u16).sum();
+
+    let [left_area, right_area] =
+        Layout::horizontal([Constraint::Min(0), Constraint::Length(right_width)]).areas(inner);
+
+    let left = Paragraph::new(Line::from(
+        if app.active_port.is_empty() || app.screen == crate::state::Screen::PortSelect {
+            vec![Span::styled(" stuart ", Style::default().bold())
+                .bg(Color::Rgb(211, 69, 21))
+                .fg(Color::Gray)]
+        } else {
+            vec![
+                Span::styled(" stuart ", Style::default().bold())
+                    .bg(Color::Rgb(211, 69, 21))
+                    .fg(Color::Gray),
+                sep_span(),
+                Span::styled(" on", Style::default().fg(Color::DarkGray)),
+                Span::styled(format!(" {} ", app.active_port), Style::default().bold()),
+                sep_span(),
+                Span::styled(format!(" {} ", app.current_baud), Style::default().bold()),
+                Span::styled("baud rate", Style::default().fg(Color::DarkGray)),
+            ]
+        },
+    ));
     frame.render_widget(left, left_area);
 
-    if !right_str.is_empty() {
-        let right =
-            Paragraph::new(Line::from(right_str.bold()).style(Style::default().fg(right_color)));
-        frame.render_widget(right, right_area);
+    if !right_spans.is_empty() {
+        frame.render_widget(Paragraph::new(Line::from(right_spans)), right_area);
     }
 }
 
@@ -292,26 +342,37 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
     }
 
     let help = match app.terminal_mode {
-        TerminalMode::Insert => Paragraph::new(Line::from(vec![
-            " INSERT ".reversed().bold(),
-            "  Ctrl+Esc ".bold(),
-            "control mode ".into(),
-        ])),
-        TerminalMode::Control => Paragraph::new(Line::from(vec![
-            " CONTROL ".reversed().bold(),
-            "  a/i ".bold(),
-            "insert mode  ".into(),
-            "f ".bold(),
-            "flush  ".into(),
-            "c ".bold(),
-            "copy  ".into(),
-            "+/- ".bold(),
-            "baud  ".into(),
-            "Del ".bold(),
-            "Back to Port Select  ".into(),
-            "q ".bold(),
-            "disconnect & quit ".into(),
-        ])),
+        TerminalMode::Insert => {
+            let mut spans = vec![
+                Span::styled(
+                    " INSERT ",
+                    Style::default().fg(Color::Black).bg(Color::Green).bold(),
+                ),
+                sep_span(),
+            ];
+            spans.extend(help_spans(&[("Ctrl+Esc", "control mode")]));
+            Paragraph::new(Line::from(spans))
+        }
+        TerminalMode::Control => {
+            let mut spans = vec![
+                Span::styled(
+                    " CONTROL ",
+                    Style::default().fg(Color::Black).bg(Color::Blue).bold(),
+                ),
+                sep_span(),
+            ];
+            spans.extend(help_spans(&[
+                ("a/i", "insert"),
+                ("↑↓", "scroll"),
+                ("Esc", "bottom"),
+                ("f", "flush"),
+                ("c", "copy"),
+                ("+/-", "baud"),
+                ("Del", "port select"),
+                ("q", "quit"),
+            ]));
+            Paragraph::new(Line::from(spans))
+        }
     }
     .block(Block::new().borders(Borders::ALL));
     frame.render_widget(help, help_area);
