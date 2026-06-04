@@ -307,6 +307,8 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
             "copy  ".into(),
             "+/- ".bold(),
             "baud  ".into(),
+            "Del ".bold(),
+            "Back to Port Select  ".into(),
             "q ".bold(),
             "disconnect & quit ".into(),
         ])),
@@ -399,6 +401,7 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
         KeyCode::Up => app.scroll(3),
         KeyCode::Down => app.scroll(-3),
         KeyCode::Esc => app.scroll_to_bottom(),
+        KeyCode::Backspace | KeyCode::Delete => app.disconnect(),
         KeyCode::Char('f') => {
             app.flush_screen();
         }
