@@ -3,7 +3,7 @@ use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind,
 };
 use ratatui::{
-    layout::{Constraint, Layout, Rect},
+    layout::{Alignment, Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
@@ -265,9 +265,8 @@ fn draw_help_bar(frame: &mut Frame, area: Rect) {
     frame.render_widget(help, area);
 }
 
-fn info_bar_spans(app: &App) -> Vec<Span<'static>> {
-    let mut spans = if app.active_port.is_empty() || app.screen == crate::state::Screen::PortSelect
-    {
+fn info_bar_left_spans(app: &App) -> Vec<Span<'static>> {
+    if app.active_port.is_empty() || app.screen == crate::state::Screen::PortSelect {
         vec![Span::styled(" stuart ", Style::default().bold())
             .bg(Color::Rgb(211, 69, 21))
             .fg(Color::Gray)]
@@ -277,51 +276,69 @@ fn info_bar_spans(app: &App) -> Vec<Span<'static>> {
                 .bg(Color::Rgb(211, 69, 21))
                 .fg(Color::Gray),
             sep_span(),
-            Span::styled(" on", Style::default().fg(Color::DarkGray)),
+            Span::styled("on", Style::default().fg(Color::DarkGray)),
             Span::styled(format!(" {} ", app.active_port), Style::default().bold()),
             sep_span(),
             Span::styled(format!(" {} ", app.current_baud), Style::default().bold()),
             Span::styled("baud rate", Style::default().fg(Color::DarkGray)),
         ]
-    };
+    }
+}
+
+fn info_bar_right_spans(app: &App) -> Vec<Span<'static>> {
+    let mut spans: Vec<Span<'static>> = Vec::new();
+
+    let line_count: usize = app
+        .scrollback
+        .iter()
+        .flat_map(|l| l.split_inclusive('\n'))
+        .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
+        .count();
+    let max_offset = line_count.saturating_sub(app.viewport_height);
+    let at_top = app.scroll_offset >= max_offset && max_offset > 0;
+
+    if at_top {
+        spans.push(Span::styled(
+            " scrollback TOP ",
+            Style::default().fg(Color::DarkGray),
+        ));
+    } else if app.scroll_offset > 0 {
+        spans.push(Span::styled(
+            format!(" scrollback +{} ", app.scroll_offset),
+            Style::default().fg(Color::DarkGray),
+        ));
+    }
 
     if app.connection.is_none() && app.hold && app.screen == crate::state::Screen::Terminal {
-        spans.push(sep_span());
+        if !spans.is_empty() {
+            spans.push(sep_span());
+        }
         spans.push(Span::styled(
             " reconnecting… ",
             Style::default().fg(Color::Yellow).bold(),
         ));
-    } else {
-        let line_count: usize = app
-            .scrollback
-            .iter()
-            .flat_map(|l| l.split_inclusive('\n'))
-            .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
-            .count();
-        let max_offset = line_count.saturating_sub(app.viewport_height);
-        let at_top = app.scroll_offset >= max_offset && max_offset > 0;
-        if at_top {
-            spans.push(sep_span());
-            spans.push(Span::styled(
-                " scrollback TOP ",
-                Style::default().fg(Color::DarkGray),
-            ));
-        } else if app.scroll_offset > 0 {
-            spans.push(sep_span());
-            spans.push(Span::styled(
-                format!(" scrollback +{} ", app.scroll_offset),
-                Style::default().fg(Color::DarkGray),
-            ));
-        }
     }
 
     spans
 }
 
+fn info_bar_spans(app: &App) -> Vec<Span<'static>> {
+    info_bar_left_spans(app)
+}
+
 fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
-    let (_, lines) = help_bar_height(info_bar_spans(app), area.width);
-    let info = Paragraph::new(Text::from(lines)).block(Block::new().borders(Borders::ALL));
-    frame.render_widget(info, area);
+    let block = Block::new().borders(Borders::ALL);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let left = Paragraph::new(Line::from(info_bar_left_spans(app)));
+    frame.render_widget(left, inner);
+
+    let right_spans = info_bar_right_spans(app);
+    if !right_spans.is_empty() {
+        let right = Paragraph::new(Line::from(right_spans)).alignment(Alignment::Right);
+        frame.render_widget(right, inner);
+    }
 }
 
 fn draw_terminal(app: &mut App, frame: &mut Frame) {
