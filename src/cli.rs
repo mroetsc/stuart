@@ -38,7 +38,12 @@ enum FlowControlArg {
 }
 
 #[derive(Parser)]
-#[command(version, about)]
+#[command(
+    version,
+    about,
+    // a bit hacky but works
+    after_help = "\x1b[1m\x1b[4mExtra:\x1b[0m\n  --completions <SHELL>  Generate shell completions [possible values: bash, elvish, fish, powershell, zsh]"
+)]
 struct Cli {
     #[arg(help = "The port to open")]
     port: Option<String>,
@@ -89,10 +94,20 @@ struct Cli {
     flow_control: FlowControlArg,
 
     #[arg(
-        long,
-        help = "Hold the terminal open and reconnect if the device disconnects"
+        short,
+        long = "keep-open",
+        default_value = "true",
+        overrides_with = "no_keep_open",
+        help = "Keep terminal open and try to reconnect if the device disconnects [default]"
     )]
-    hold: bool,
+    keep_open: bool,
+
+    #[arg(
+        long = "no-keep-open",
+        overrides_with = "keep_open",
+        help = "Exit to port select when device disconnects"
+    )]
+    no_keep_open: bool,
 
     #[arg(
         long,
@@ -142,6 +157,6 @@ pub fn parse() -> Option<Args> {
                 FlowControlArg::Hardware => FlowControl::Hardware,
             },
         },
-        hold: cli.hold,
+        hold: !cli.no_keep_open,
     })
 }
