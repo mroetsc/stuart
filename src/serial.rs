@@ -5,6 +5,8 @@ use std::time::Duration;
 
 pub use serialport::{DataBits, FlowControl, Parity, StopBits};
 
+pub const BAUD_RATES: &[u32] = &[9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
+
 pub enum Command {
     Write(Vec<u8>),
     Disconnect,

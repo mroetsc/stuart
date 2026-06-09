@@ -39,6 +39,8 @@ pub struct App {
     pub hold: bool,
     pub reconnect_at: Option<Instant>,
     pub show_settings: bool,
+    pub settings_cursor: usize,
+    pub settings_baud_input: Option<String>,
     clipboard: Option<arboard::Clipboard>,
 }
 
@@ -64,6 +66,8 @@ impl App {
             hold,
             reconnect_at: None,
             show_settings: false,
+            settings_cursor: 0,
+            settings_baud_input: None,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -98,7 +102,25 @@ impl App {
             hold,
             reconnect_at: None,
             show_settings: false,
+            settings_cursor: 0,
+            settings_baud_input: None,
             clipboard: arboard::Clipboard::new().ok(),
+        }
+    }
+
+    pub fn apply_port_config(&mut self) {
+        if self.connection.is_none() || self.active_port.is_empty() {
+            return;
+        }
+        self.connection = None;
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        match serial::open(&self.active_port, &self.port_config) {
+            Ok((tx, rx)) => {
+                self.connection = Some((tx, rx));
+            }
+            Err(e) => {
+                self.push_error(friendly_serial_error(&e.to_string()));
+            }
         }
     }
 
@@ -173,13 +195,13 @@ impl App {
     }
 
     pub fn change_baud(&mut self, delta: i32) {
-        const RATES: &[u32] = &[9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
-        let current = RATES
+        let current = crate::serial::BAUD_RATES
             .iter()
             .position(|&r| r == self.port_config.baud)
             .unwrap_or(4);
-        let next = (current as i32 + delta).clamp(0, RATES.len() as i32 - 1) as usize;
-        let new_baud = RATES[next];
+        let next =
+            (current as i32 + delta).clamp(0, crate::serial::BAUD_RATES.len() as i32 - 1) as usize;
+        let new_baud = crate::serial::BAUD_RATES[next];
         if new_baud == self.port_config.baud {
             return;
         }
