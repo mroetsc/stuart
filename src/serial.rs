@@ -3,6 +3,8 @@ use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
 
+pub use serialport::{DataBits, FlowControl, Parity, StopBits};
+
 pub enum Command {
     Write(Vec<u8>),
     Disconnect,
@@ -14,11 +16,36 @@ pub enum SerialEvent {
     Disconnected,
 }
 
+#[derive(Clone)]
+pub struct PortConfig {
+    pub baud: u32,
+    pub data_bits: DataBits,
+    pub stop_bits: StopBits,
+    pub parity: Parity,
+    pub flow_control: FlowControl,
+}
+
+impl Default for PortConfig {
+    fn default() -> Self {
+        Self {
+            baud: 115200,
+            data_bits: DataBits::Eight,
+            stop_bits: StopBits::One,
+            parity: Parity::None,
+            flow_control: FlowControl::None,
+        }
+    }
+}
+
 pub fn open(
     port_name: &str,
-    baud: u32,
+    config: &PortConfig,
 ) -> Result<(Sender<Command>, Receiver<SerialEvent>), serialport::Error> {
-    let port = serialport::new(port_name, baud)
+    let port = serialport::new(port_name, config.baud)
+        .data_bits(config.data_bits)
+        .stop_bits(config.stop_bits)
+        .parity(config.parity)
+        .flow_control(config.flow_control)
         .timeout(Duration::from_millis(10))
         .open()?;
 
