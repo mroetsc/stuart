@@ -278,7 +278,10 @@ fn info_bar_spans(app: &App) -> Vec<Span<'static>> {
             Span::styled(" on", Style::default().fg(Color::DarkGray)),
             Span::styled(format!(" {} ", app.active_port), Style::default().bold()),
             sep_span(),
-            Span::styled(format!(" {} ", app.current_baud), Style::default().bold()),
+            Span::styled(
+                format!(" {} ", app.port_config.baud),
+                Style::default().bold(),
+            ),
             Span::styled("baud rate", Style::default().fg(Color::DarkGray)),
         ]
     };
