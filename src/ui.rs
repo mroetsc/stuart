@@ -3,10 +3,10 @@ use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind,
 };
 use ratatui::{
-    layout::{Alignment, Constraint, Layout, Rect},
+    layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph},
     DefaultTerminal, Frame,
 };
 use serialport::{SerialPortType, UsbPortInfo};
@@ -71,6 +71,7 @@ fn draw_port_select(app: &App, frame: &mut Frame) {
     draw_port_list(app, frame, list_area);
     draw_port_info(app, frame, port_info_area);
     draw_help_bar(frame, help_area);
+    draw_error_popup(app, frame);
 }
 
 fn draw_port_list(app: &App, frame: &mut Frame, area: Rect) {
@@ -81,10 +82,7 @@ fn draw_port_list(app: &App, frame: &mut Frame, area: Rect) {
         return;
     }
 
-    let block_title = match &app.error {
-        Some(e) => format!(" Error: {} ", e),
-        None => " stuart - select a port ".to_string(),
-    };
+    let block_title = " select a port ";
 
     let items: Vec<ListItem> = app
         .ports
@@ -265,8 +263,9 @@ fn draw_help_bar(frame: &mut Frame, area: Rect) {
     frame.render_widget(help, area);
 }
 
-fn info_bar_left_spans(app: &App) -> Vec<Span<'static>> {
-    if app.active_port.is_empty() || app.screen == crate::state::Screen::PortSelect {
+fn info_bar_spans(app: &App) -> Vec<Span<'static>> {
+    let mut spans = if app.active_port.is_empty() || app.screen == crate::state::Screen::PortSelect
+    {
         vec![Span::styled(" stuart ", Style::default().bold())
             .bg(Color::Rgb(211, 69, 21))
             .fg(Color::Gray)]
@@ -276,69 +275,51 @@ fn info_bar_left_spans(app: &App) -> Vec<Span<'static>> {
                 .bg(Color::Rgb(211, 69, 21))
                 .fg(Color::Gray),
             sep_span(),
-            Span::styled("on", Style::default().fg(Color::DarkGray)),
+            Span::styled(" on", Style::default().fg(Color::DarkGray)),
             Span::styled(format!(" {} ", app.active_port), Style::default().bold()),
             sep_span(),
             Span::styled(format!(" {} ", app.current_baud), Style::default().bold()),
             Span::styled("baud rate", Style::default().fg(Color::DarkGray)),
         ]
-    }
-}
-
-fn info_bar_right_spans(app: &App) -> Vec<Span<'static>> {
-    let mut spans: Vec<Span<'static>> = Vec::new();
-
-    let line_count: usize = app
-        .scrollback
-        .iter()
-        .flat_map(|l| l.split_inclusive('\n'))
-        .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
-        .count();
-    let max_offset = line_count.saturating_sub(app.viewport_height);
-    let at_top = app.scroll_offset >= max_offset && max_offset > 0;
-
-    if at_top {
-        spans.push(Span::styled(
-            " scrollback TOP ",
-            Style::default().fg(Color::DarkGray),
-        ));
-    } else if app.scroll_offset > 0 {
-        spans.push(Span::styled(
-            format!(" scrollback +{} ", app.scroll_offset),
-            Style::default().fg(Color::DarkGray),
-        ));
-    }
+    };
 
     if app.connection.is_none() && app.hold && app.screen == crate::state::Screen::Terminal {
-        if !spans.is_empty() {
-            spans.push(sep_span());
-        }
+        spans.push(sep_span());
         spans.push(Span::styled(
             " reconnecting… ",
             Style::default().fg(Color::Yellow).bold(),
         ));
+    } else {
+        let line_count: usize = app
+            .scrollback
+            .iter()
+            .flat_map(|l| l.split_inclusive('\n'))
+            .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
+            .count();
+        let max_offset = line_count.saturating_sub(app.viewport_height);
+        let at_top = app.scroll_offset >= max_offset && max_offset > 0;
+        if at_top {
+            spans.push(sep_span());
+            spans.push(Span::styled(
+                " scrollback TOP ",
+                Style::default().fg(Color::DarkGray),
+            ));
+        } else if app.scroll_offset > 0 {
+            spans.push(sep_span());
+            spans.push(Span::styled(
+                format!(" scrollback +{} ", app.scroll_offset),
+                Style::default().fg(Color::DarkGray),
+            ));
+        }
     }
 
     spans
 }
 
-fn info_bar_spans(app: &App) -> Vec<Span<'static>> {
-    info_bar_left_spans(app)
-}
-
 fn draw_terminal_info(app: &App, frame: &mut Frame, area: Rect) {
-    let block = Block::new().borders(Borders::ALL);
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    let left = Paragraph::new(Line::from(info_bar_left_spans(app)));
-    frame.render_widget(left, inner);
-
-    let right_spans = info_bar_right_spans(app);
-    if !right_spans.is_empty() {
-        let right = Paragraph::new(Line::from(right_spans)).alignment(Alignment::Right);
-        frame.render_widget(right, inner);
-    }
+    let (_, lines) = help_bar_height(info_bar_spans(app), area.width);
+    let info = Paragraph::new(Text::from(lines)).block(Block::new().borders(Borders::ALL));
+    frame.render_widget(info, area);
 }
 
 fn draw_terminal(app: &mut App, frame: &mut Frame) {
@@ -428,6 +409,7 @@ fn draw_terminal(app: &mut App, frame: &mut Frame) {
     let (_, help_lines) = help_bar_height(terminal_help_spans(&app.terminal_mode), help_area.width);
     let help = Paragraph::new(Text::from(help_lines)).block(Block::new().borders(Borders::ALL));
     frame.render_widget(help, help_area);
+    draw_error_popup(app, frame);
 }
 
 fn vt100_color(color: vt100::Color) -> Color {
@@ -436,6 +418,39 @@ fn vt100_color(color: vt100::Color) -> Color {
         vt100::Color::Idx(i) => Color::Indexed(i),
         vt100::Color::Rgb(r, g, b) => Color::Rgb(r, g, b),
     }
+}
+
+fn draw_error_popup(app: &App, frame: &mut Frame) {
+    let Some(entry) = app.errors.last() else {
+        return;
+    };
+
+    let label = if entry.count > 1 {
+        format!("{} (x{})", entry.message, entry.count)
+    } else {
+        entry.message.clone()
+    };
+
+    let area = frame.area();
+    let width = (label.len() as u16 + 4).max(24).min(area.width);
+    let popup_area = Rect {
+        x: (area.width.saturating_sub(width)) / 2,
+        y: 0,
+        width,
+        height: 3,
+    };
+
+    frame.render_widget(Clear, popup_area);
+    let paragraph = Paragraph::new(Span::styled(label, Style::default().fg(Color::Red))).block(
+        Block::new()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Red))
+            .title(Span::styled(
+                " error ",
+                Style::default().fg(Color::Red).bold(),
+            )),
+    );
+    frame.render_widget(paragraph, popup_area);
 }
 
 fn handle_events(app: &mut App) -> io::Result<()> {
