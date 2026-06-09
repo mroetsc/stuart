@@ -38,6 +38,7 @@ pub struct App {
     pub viewport_height: usize,
     pub hold: bool,
     pub reconnect_at: Option<Instant>,
+    pub show_settings: bool,
     clipboard: Option<arboard::Clipboard>,
 }
 
@@ -62,6 +63,7 @@ impl App {
             viewport_height: 24,
             hold,
             reconnect_at: None,
+            show_settings: false,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -95,6 +97,7 @@ impl App {
             viewport_height: 24,
             hold,
             reconnect_at: None,
+            show_settings: false,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -118,7 +121,8 @@ impl App {
     }
 
     pub fn tick_errors(&mut self) {
-        self.errors.retain(|e| e.shown_at.elapsed() < Duration::from_secs(5));
+        self.errors
+            .retain(|e| e.shown_at.elapsed() < Duration::from_secs(5));
     }
 
     pub fn resize_parser(&mut self, rows: u16, cols: u16) {
@@ -142,6 +146,7 @@ impl App {
                     self.scrollback.clear();
                     self.scroll_offset = 0;
                     self.active_port = port.port_name.clone();
+
                     self.connection = Some((tx, rx));
                     self.screen = Screen::Terminal;
                     self.terminal_mode = TerminalMode::Insert;
@@ -251,8 +256,7 @@ impl App {
                             self.errors.clear();
                         }
                         Err(_) => {
-                            self.reconnect_at =
-                                Some(Instant::now() + Duration::from_secs(1));
+                            self.reconnect_at = Some(Instant::now() + Duration::from_secs(1));
                         }
                     }
                 }
@@ -287,8 +291,7 @@ impl App {
                     Ok(SerialEvent::Error(e)) => {
                         self.connection = None;
                         if self.hold {
-                            self.reconnect_at =
-                                Some(Instant::now() + Duration::from_secs(1));
+                            self.reconnect_at = Some(Instant::now() + Duration::from_secs(1));
                         } else {
                             self.push_error(friendly_serial_error(&e));
                             self.screen = Screen::PortSelect;
@@ -298,8 +301,7 @@ impl App {
                     Ok(SerialEvent::Disconnected) => {
                         self.connection = None;
                         if self.hold {
-                            self.reconnect_at =
-                                Some(Instant::now() + Duration::from_secs(1));
+                            self.reconnect_at = Some(Instant::now() + Duration::from_secs(1));
                         } else {
                             self.screen = Screen::PortSelect;
                         }
