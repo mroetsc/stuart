@@ -2,7 +2,7 @@ use serialport::SerialPortInfo;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 
-use crate::serial::{self, Command, SerialEvent};
+use crate::serial::{self, Command, PortConfig, SerialEvent};
 
 #[derive(Debug, PartialEq)]
 pub enum Screen {
@@ -31,7 +31,7 @@ pub struct App {
     pub errors: Vec<ErrorEntry>,
     pub terminal_mode: TerminalMode,
     pub active_port: String,
-    pub current_baud: u32,
+    pub port_config: PortConfig,
     pub parser: vt100::Parser,
     pub scrollback: Vec<String>,
     pub scroll_offset: usize,
@@ -55,7 +55,7 @@ impl App {
             errors: Vec::new(),
             terminal_mode: TerminalMode::Insert,
             active_port: String::new(),
-            current_baud: 0,
+            port_config: PortConfig::default(),
             parser: vt100::Parser::new(24, 80, 0),
             scrollback: Vec::new(),
             scroll_offset: 0,
@@ -66,8 +66,8 @@ impl App {
         }
     }
 
-    pub fn with_port(port_name: &str, baud: u32, hold: bool) -> Self {
-        let (connection, errors, screen) = match serial::open(port_name, baud) {
+    pub fn with_port(port_name: &str, config: PortConfig, hold: bool) -> Self {
+        let (connection, errors, screen) = match serial::open(port_name, &config) {
             Ok((tx, rx)) => (Some((tx, rx)), Vec::new(), Screen::Terminal),
             Err(e) => (
                 None,
@@ -88,7 +88,7 @@ impl App {
             errors,
             terminal_mode: TerminalMode::Insert,
             active_port: port_name.to_string(),
-            current_baud: baud,
+            port_config: config,
             parser: vt100::Parser::new(24, 80, 0),
             scrollback: Vec::new(),
             scroll_offset: 0,
@@ -118,8 +118,7 @@ impl App {
     }
 
     pub fn tick_errors(&mut self) {
-        let cutoff = Duration::from_secs(5);
-        self.errors.retain(|e| e.shown_at.elapsed() < cutoff);
+        self.errors.retain(|e| e.shown_at.elapsed() < Duration::from_secs(5));
     }
 
     pub fn resize_parser(&mut self, rows: u16, cols: u16) {
@@ -136,14 +135,13 @@ impl App {
 
     pub fn open_selected(&mut self) {
         if let Some(port) = self.ports.get(self.selected) {
-            match serial::open(&port.port_name, 115200) {
+            match serial::open(&port.port_name, &self.port_config) {
                 Ok((tx, rx)) => {
                     self.errors.clear();
                     self.parser = vt100::Parser::new(24, 80, 0);
                     self.scrollback.clear();
                     self.scroll_offset = 0;
                     self.active_port = port.port_name.clone();
-                    self.current_baud = 115200;
                     self.connection = Some((tx, rx));
                     self.screen = Screen::Terminal;
                     self.terminal_mode = TerminalMode::Insert;
@@ -173,18 +171,21 @@ impl App {
         const RATES: &[u32] = &[9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
         let current = RATES
             .iter()
-            .position(|&r| r == self.current_baud)
+            .position(|&r| r == self.port_config.baud)
             .unwrap_or(4);
         let next = (current as i32 + delta).clamp(0, RATES.len() as i32 - 1) as usize;
         let new_baud = RATES[next];
-        if new_baud == self.current_baud {
+        if new_baud == self.port_config.baud {
             return;
         }
         self.connection = None;
         std::thread::sleep(std::time::Duration::from_millis(100));
-        match serial::open(&self.active_port, new_baud) {
+        let mut config = self.port_config.clone();
+        config.baud = new_baud;
+        match serial::open(&self.active_port, &config) {
             Ok((tx, rx)) => {
-                self.current_baud = new_baud;
+                self.port_config.baud = new_baud;
+                self.port_config = config;
                 self.connection = Some((tx, rx));
             }
             Err(e) => {
@@ -244,7 +245,7 @@ impl App {
             if let Some(at) = self.reconnect_at {
                 if Instant::now() >= at {
                     self.reconnect_at = None;
-                    match serial::open(&self.active_port, self.current_baud) {
+                    match serial::open(&self.active_port, &self.port_config.clone()) {
                         Ok((tx, rx)) => {
                             self.connection = Some((tx, rx));
                             self.errors.clear();
@@ -270,10 +271,11 @@ impl App {
                             let text = String::from_utf8_lossy(&stripped);
                             for chunk in text.split_inclusive('\n') {
                                 if let Some(last) = self.scrollback.last_mut()
-                                    && !last.ends_with('\n') {
-                                        last.push_str(chunk);
-                                        continue;
-                                    }
+                                    && !last.ends_with('\n')
+                                {
+                                    last.push_str(chunk);
+                                    continue;
+                                }
                                 self.scrollback.push(chunk.to_string());
                             }
                             if self.scrollback.len() > MAX_SCROLLBACK {
