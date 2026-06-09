@@ -16,13 +16,19 @@ pub enum TerminalMode {
     Control,
 }
 
+pub struct ErrorEntry {
+    pub message: String,
+    pub count: u32,
+    pub shown_at: Instant,
+}
+
 pub struct App {
     pub screen: Screen,
     pub ports: Vec<SerialPortInfo>,
     pub selected: usize,
     pub exit: bool,
     pub connection: Option<(Sender<Command>, Receiver<SerialEvent>)>,
-    pub error: Option<String>,
+    pub errors: Vec<ErrorEntry>,
     pub terminal_mode: TerminalMode,
     pub active_port: String,
     pub current_baud: u32,
@@ -46,7 +52,7 @@ impl App {
             selected: 0,
             exit: false,
             connection: None,
-            error: None,
+            errors: Vec::new(),
             terminal_mode: TerminalMode::Insert,
             active_port: String::new(),
             current_baud: 0,
@@ -61,9 +67,17 @@ impl App {
     }
 
     pub fn with_port(port_name: &str, baud: u32, hold: bool) -> Self {
-        let (connection, error, screen) = match serial::open(port_name, baud) {
-            Ok((tx, rx)) => (Some((tx, rx)), None, Screen::Terminal),
-            Err(e) => (None, Some(e.to_string()), Screen::PortSelect),
+        let (connection, errors, screen) = match serial::open(port_name, baud) {
+            Ok((tx, rx)) => (Some((tx, rx)), Vec::new(), Screen::Terminal),
+            Err(e) => (
+                None,
+                vec![ErrorEntry {
+                    message: friendly_serial_error(&e.to_string()),
+                    count: 1,
+                    shown_at: Instant::now(),
+                }],
+                Screen::PortSelect,
+            ),
         };
         Self {
             screen,
@@ -71,7 +85,7 @@ impl App {
             selected: 0,
             exit: false,
             connection,
-            error,
+            errors,
             terminal_mode: TerminalMode::Insert,
             active_port: port_name.to_string(),
             current_baud: baud,
@@ -90,6 +104,24 @@ impl App {
         self.selected = self.selected.min(self.ports.len().saturating_sub(1));
     }
 
+    pub fn push_error(&mut self, msg: String) {
+        if let Some(entry) = self.errors.iter_mut().find(|e| e.message == msg) {
+            entry.count += 1;
+            entry.shown_at = Instant::now();
+        } else {
+            self.errors.push(ErrorEntry {
+                message: msg,
+                count: 1,
+                shown_at: Instant::now(),
+            });
+        }
+    }
+
+    pub fn tick_errors(&mut self) {
+        let cutoff = Duration::from_secs(5);
+        self.errors.retain(|e| e.shown_at.elapsed() < cutoff);
+    }
+
     pub fn resize_parser(&mut self, rows: u16, cols: u16) {
         self.parser.screen_mut().set_size(rows, cols);
     }
@@ -106,7 +138,7 @@ impl App {
         if let Some(port) = self.ports.get(self.selected) {
             match serial::open(&port.port_name, 115200) {
                 Ok((tx, rx)) => {
-                    self.error = None;
+                    self.errors.clear();
                     self.parser = vt100::Parser::new(24, 80, 0);
                     self.scrollback.clear();
                     self.scroll_offset = 0;
@@ -117,7 +149,7 @@ impl App {
                     self.terminal_mode = TerminalMode::Insert;
                 }
                 Err(e) => {
-                    self.error = Some(e.to_string());
+                    self.push_error(friendly_serial_error(&e.to_string()));
                 }
             }
         }
@@ -156,7 +188,7 @@ impl App {
                 self.connection = Some((tx, rx));
             }
             Err(e) => {
-                self.error = Some(e.to_string());
+                self.push_error(friendly_serial_error(&e.to_string()));
                 self.screen = Screen::PortSelect;
             }
         }
@@ -206,6 +238,8 @@ impl App {
     }
 
     pub fn poll_serial(&mut self) {
+        self.tick_errors();
+
         if self.connection.is_none() && self.hold && self.screen == Screen::Terminal {
             if let Some(at) = self.reconnect_at {
                 if Instant::now() >= at {
@@ -213,7 +247,7 @@ impl App {
                     match serial::open(&self.active_port, self.current_baud) {
                         Ok((tx, rx)) => {
                             self.connection = Some((tx, rx));
-                            self.error = None;
+                            self.errors.clear();
                         }
                         Err(_) => {
                             self.reconnect_at =
@@ -251,11 +285,10 @@ impl App {
                     Ok(SerialEvent::Error(e)) => {
                         self.connection = None;
                         if self.hold {
-                            self.error = None;
                             self.reconnect_at =
                                 Some(Instant::now() + Duration::from_secs(1));
                         } else {
-                            self.error = Some(e);
+                            self.push_error(friendly_serial_error(&e));
                             self.screen = Screen::PortSelect;
                         }
                         break;
@@ -274,5 +307,22 @@ impl App {
                 }
             }
         }
+    }
+}
+
+fn friendly_serial_error(raw: &str) -> String {
+    let lower = raw.to_lowercase();
+    if lower.contains("permission denied") || lower.contains("access denied") {
+        "Permission denied - try running with sudo or check port permissions".to_string()
+    } else if lower.contains("no such file") || lower.contains("not found") {
+        "Port not found - device may have been disconnected".to_string()
+    } else if lower.contains("broken pipe") || lower.contains("device disconnected") {
+        "Device disconnected unexpectedly".to_string()
+    } else if lower.contains("resource busy") || lower.contains("access is denied") {
+        "Port is busy - already in use by another application".to_string()
+    } else if lower.contains("timed out") {
+        "Connection timed out".to_string()
+    } else {
+        raw.to_string()
     }
 }
