@@ -1792,7 +1792,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "stuart"
+name = "stuart-cli"
 version = "0.1.0"
 dependencies = [
  "arboard",

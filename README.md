@@ -33,12 +33,12 @@ yay -S stuart
 ### Cargo
 
 ```sh
-cargo install stuart
+cargo install stuart-cli
 ```
 
 ### Prebuilt binaries
 
-Download from the [releases page](https://github.com/mroetsc/stuart/releases) for Linux (x86_64, aarch64) and macOS (x86_64, aarch64).
+Download from the [releases page](https://github.com/mroetsc/stuart/releases) for Linux, Windows (x86_64) and macOS (aarch64).
 
 ## Usage
 
