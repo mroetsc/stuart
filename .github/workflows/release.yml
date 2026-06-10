@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --locked
+
+  build:
+    name: Build — ${{ matrix.platform.os-name }}
+    needs: test
+    runs-on: ${{ matrix.platform.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os-name: Linux-x86_64
+            runs-on: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            archive: stuart-${{ github.ref_name }}-x86_64-linux.tar.gz
+
+          - os-name: Linux-aarch64
+            runs-on: ubuntu-24.04
+            target: aarch64-unknown-linux-musl
+            archive: stuart-${{ github.ref_name }}-aarch64-linux.tar.gz
+
+          - os-name: macOS-x86_64
+            runs-on: macos-latest
+            target: x86_64-apple-darwin
+            archive: stuart-${{ github.ref_name }}-x86_64-macos.tar.gz
+
+          - os-name: macOS-aarch64
+            runs-on: macos-latest
+            target: aarch64-apple-darwin
+            archive: stuart-${{ github.ref_name }}-aarch64-macos.tar.gz
+
+          - os-name: Windows-x86_64
+            runs-on: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: stuart-${{ github.ref_name }}-x86_64-windows.zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: build
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: true
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/${{ matrix.platform.target }}/release
+          tar czf ../../../${{ matrix.platform.archive }} stuart
+          cd -
+          sha256sum ${{ matrix.platform.archive }} > ${{ matrix.platform.archive }}.sha256
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd target/${{ matrix.platform.target }}/release
+          Compress-Archive -Path stuart.exe -DestinationPath ../../../${{ matrix.platform.archive }}
+          cd -
+          $hash = (Get-FileHash ${{ matrix.platform.archive }} -Algorithm SHA256).Hash.ToLower()
+          "$hash  ${{ matrix.platform.archive }}" | Out-File -FilePath "${{ matrix.platform.archive }}.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform.os-name }}
+          path: |
+            ${{ matrix.platform.archive }}
+            ${{ matrix.platform.archive }}.sha256
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract changelog for this version
+        id: changelog
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          command: changelog
+          args: --at ${{ github.ref_name }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.stdout }}
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/**/*.sha256
