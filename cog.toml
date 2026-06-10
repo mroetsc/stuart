@@ -1,0 +1,21 @@
+# taken from https://docs.cocogitto.io/guide/recipes.html#cargo-executable-projects
+pre_bump_hooks = [
+  "cargo build --release",
+  "cargo set-version {{version}}",
+  "cargo check --release",
+  "git add :/Cargo.lock",
+]
+post_bump_hooks = [
+  "git push",
+  "git push {{version}}",
+]
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+repository = "stuart"
+owner = "mroetsc"
+authors = [
+  { signature = "mroetsc", username = "mroetsc" },
+]
