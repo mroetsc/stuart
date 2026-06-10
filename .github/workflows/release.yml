@@ -15,6 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install libudev
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
@@ -32,18 +35,9 @@ jobs:
         platform:
           - os-name: Linux-x86_64
             runs-on: ubuntu-24.04
-            target: x86_64-unknown-linux-musl
+            target: x86_64-unknown-linux-gnu
             archive: stuart-${{ github.ref_name }}-x86_64-linux.tar.gz
 
-          - os-name: Linux-aarch64
-            runs-on: ubuntu-24.04
-            target: aarch64-unknown-linux-musl
-            archive: stuart-${{ github.ref_name }}-aarch64-linux.tar.gz
-
-          - os-name: macOS-x86_64
-            runs-on: macos-latest
-            target: x86_64-apple-darwin
-            archive: stuart-${{ github.ref_name }}-x86_64-macos.tar.gz
 
           - os-name: macOS-aarch64
             runs-on: macos-latest
@@ -57,6 +51,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install libudev (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
 
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v1
@@ -78,9 +76,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          cd target/${{ matrix.platform.target }}/release
-          Compress-Archive -Path stuart.exe -DestinationPath ../../../${{ matrix.platform.archive }}
-          cd -
+          Compress-Archive -Path target/${{ matrix.platform.target }}/release/stuart.exe -DestinationPath ${{ matrix.platform.archive }}
           $hash = (Get-FileHash ${{ matrix.platform.archive }} -Algorithm SHA256).Hash.ToLower()
           "$hash  ${{ matrix.platform.archive }}" | Out-File -FilePath "${{ matrix.platform.archive }}.sha256"
 
