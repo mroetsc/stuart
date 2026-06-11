@@ -33,6 +33,7 @@ yay -S stuart
 ### Cargo
 
 ```sh
+# will install 'stuart' binary
 cargo install stuart-cli
 ```
 
@@ -46,21 +47,25 @@ Download from the [releases page](https://github.com/mroetsc/stuart/releases) fo
 Usage: stuart [OPTIONS] [PORT]
 
 Arguments:
-  [PORT]  The port to open
+  [PORT]  Serial port to open
 
-Options:
+Serial Settings:
   -b, --baud <BAUDRATE>      Baud rate [default: 115200]
   -d, --data-bits <BITS>     Data bits [default: 8] [possible values: 5, 6, 7, 8]
   -s, --stop-bits <BITS>     Stop bits [default: 1] [possible values: 1, 2]
   -p, --parity <PARITY>      Parity [default: none] [possible values: none, even, odd]
   -f, --flow-control <FLOW>  Flow control [default: none] [possible values: none, software, hardware]
-  -k, --keep-open            Keep terminal open and try to reconnect if the device disconnects [default]
-      --no-keep-open         Exit to port select when device disconnects
-  -h, --help                 Print help
-  -V, --version              Print version
+
+Behavior:
+  -k, --keep-open     Keep terminal open and reconnect if the device disconnects [default]
+      --no-keep-open  Exit to port select when device disconnects
 
 Extra:
-  --completions <SHELL>  Generate shell completions [possible values: bash, elvish, fish, powershell, zsh]
+      --completions <SHELL>  Generate shell completions [possible values: bash, elvish, fish, powershell, zsh]
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
 ```
 
 **Examples:**
@@ -91,7 +96,10 @@ stuart -b 9600 /dev/ttyUSB0
 
 ### Terminal - Control Mode
 
-Enter control mode with `Ctrl+Esc`.
+Enter control mode with `Ctrl+Esc` or `Ctrl+Space`.
+> [!NOTE]
+> For `Ctrl+Esc` to work, your terminal emulator has to support the [kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/), which most modern emulators do. If not, only `Ctrl+Space` will work.
+
 
 | Key | Action |
 |-----|--------|
