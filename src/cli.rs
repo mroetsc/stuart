@@ -37,85 +37,107 @@ enum FlowControlArg {
     Hardware,
 }
 
+/// A serial terminal TUI
 #[derive(Parser)]
 #[command(
     version,
     about,
-    // a bit hacky but works
-    after_help = "\x1b[1m\x1b[4mExtra:\x1b[0m\n  --completions <SHELL>  Generate shell completions [possible values: bash, elvish, fish, powershell, zsh]"
+    long_about = None,
+    next_display_order = None,
+    disable_help_flag = true,
+    disable_version_flag = true,
 )]
 struct Cli {
-    #[arg(help = "The port to open")]
+    /// Serial port to open
+    #[arg()]
     port: Option<String>,
 
+    /// Baud rate
     #[arg(
         short,
         long,
         value_name = "BAUDRATE",
         default_value = "115200",
-        help = "Baud rate"
+        help_heading = "Serial Settings",
+        display_order = 1
     )]
     baud: u32,
 
+    /// Data bits
     #[arg(
         short,
         long,
-        default_value = "8",
         value_name = "BITS",
-        help = "Data bits"
+        default_value = "8",
+        help_heading = "Serial Settings",
+        display_order = 2
     )]
     data_bits: DataBitsArg,
 
+    /// Stop bits
     #[arg(
         short,
         long,
-        default_value = "1",
         value_name = "BITS",
-        help = "Stop bits"
+        default_value = "1",
+        help_heading = "Serial Settings",
+        display_order = 3
     )]
     stop_bits: StopBitsArg,
 
+    /// Parity
     #[arg(
         short,
         long,
-        default_value = "none",
         value_name = "PARITY",
-        help = "Parity"
+        default_value = "none",
+        help_heading = "Serial Settings",
+        display_order = 4
     )]
     parity: ParityArg,
 
+    /// Flow control
     #[arg(
         short,
         long,
-        default_value = "none",
         value_name = "FLOW",
-        help = "Flow control"
+        default_value = "none",
+        help_heading = "Serial Settings",
+        display_order = 5
     )]
     flow_control: FlowControlArg,
 
+    /// Keep terminal open and reconnect if the device disconnects [default]
     #[arg(
-        short,
+        short = 'k',
         long = "keep-open",
         default_value = "true",
         overrides_with = "no_keep_open",
-        help = "Keep terminal open and try to reconnect if the device disconnects [default]"
+        help_heading = "Behavior",
+        display_order = 6
     )]
     keep_open: bool,
 
+    /// Exit to port select when device disconnects
     #[arg(
         long = "no-keep-open",
         overrides_with = "keep_open",
-        help = "Exit to port select when device disconnects"
+        help_heading = "Behavior",
+        display_order = 7
     )]
     no_keep_open: bool,
 
-    #[arg(
-        long,
-        value_name = "SHELL",
-        help = "Generate shell completions",
-        hide = true
-    )]
+    /// Generate shell completions
+    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 8)]
     completions: Option<Shell>,
+
+    /// Print help
+    #[arg(short, long, action = clap::ArgAction::Help, help_heading = "Options", display_order = 9)]
+    help: Option<bool>,
+
+    /// Print version
+    #[arg(short = 'V', long, action = clap::ArgAction::Version, help_heading = "Options", display_order = 10)]
+    version: Option<bool>,
 }
 
 pub struct Args {
