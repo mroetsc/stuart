@@ -2,6 +2,20 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.1.1](https://github.com/mroetsc/stuart/compare/a6d2e500aca731bc424bfd7796c3e65f45123fe6..0.1.1) - 2026-06-11
+#### Features
+- (**cli**) better grouping for help output - ([7a77410](https://github.com/mroetsc/stuart/commit/7a77410cbb52cc0be74861b74bb6a9956f59596a)) - [@mroetsc](https://github.com/mroetsc)
+- (**state**) sort available ports in PortSelection properly - ([74f9d11](https://github.com/mroetsc/stuart/commit/74f9d11e5534f5ea6c96f01379eba380b92f6397)) - [@mroetsc](https://github.com/mroetsc)
+- (**ui**) fallback keycode to enter control mode on emulators not supporting kitty keyboard protocol - ([b179f0f](https://github.com/mroetsc/stuart/commit/b179f0f61dd4ca5548bf39850b55256222261242)) - [@mroetsc](https://github.com/mroetsc)
+#### Documentation
+- updated readme with with latest new help output and keybindings note - ([a4bf4d2](https://github.com/mroetsc/stuart/commit/a4bf4d20505417eab91f36d17677c3c0dc4c34e8)) - [@mroetsc](https://github.com/mroetsc)
+#### Build system
+- renamed cargo binary to stuart - ([578950d](https://github.com/mroetsc/stuart/commit/578950dc65ab8d5b3342899e95787f8ea34a42ce)) - [@mroetsc](https://github.com/mroetsc)
+#### Miscellaneous Chores
+- update cargo package name and update install instructions - ([a6d2e50](https://github.com/mroetsc/stuart/commit/a6d2e500aca731bc424bfd7796c3e65f45123fe6)) - [@mroetsc](https://github.com/mroetsc)
+
+- - -
+
 ## [0.1.0](https://github.com/mroetsc/stuart/compare/5434e100f6ec191a832d330b1b5bd8d696a9c922..0.1.0) - 2026-06-10
 #### Features
 - (**cli**) hold port connection by default; renamed args - ([fd2d0db](https://github.com/mroetsc/stuart/commit/fd2d0dbbe6bc865c39d68da2d7f0477cd0013e4f)) - [@mroetsc](https://github.com/mroetsc)
