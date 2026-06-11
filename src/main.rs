@@ -28,9 +28,9 @@ fn main() {
     }
 
     let mut app = match args.port {
-        Some(port) => App::with_port(&port, args.config, args.hold),
+        Some(port) => App::with_port(&port, args.config, args.hold, enhanced),
         None => {
-            let mut app = App::new(args.hold);
+            let mut app = App::new(args.hold, enhanced);
             app.port_config = args.config;
             app
         }

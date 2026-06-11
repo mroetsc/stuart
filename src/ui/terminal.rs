@@ -1,10 +1,10 @@
 use crossterm::event::{KeyCode, KeyModifiers, MouseEventKind};
 use ratatui::{
-    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Text},
     widgets::{Block, Borders, Paragraph},
+    Frame,
 };
 
 use crate::state::{App, TerminalMode};
@@ -15,8 +15,11 @@ use super::common::{
 
 pub fn draw(app: &mut App, frame: &mut Frame) {
     let info_height = help_bar_height(info_bar_spans(app), frame.area().width).0;
-    let help_height =
-        help_bar_height(help_spans_for_mode(&app.terminal_mode), frame.area().width).0;
+    let help_height = help_bar_height(
+        help_spans_for_mode(&app.terminal_mode, app.keyboard_enhanced),
+        frame.area().width,
+    )
+    .0;
 
     let [info_area, output_area, help_area] = Layout::vertical([
         Constraint::Length(info_height),
@@ -95,7 +98,10 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
         ));
     }
 
-    let (_, help_lines) = help_bar_height(help_spans_for_mode(&app.terminal_mode), help_area.width);
+    let (_, help_lines) = help_bar_height(
+        help_spans_for_mode(&app.terminal_mode, app.keyboard_enhanced),
+        help_area.width,
+    );
     let help = Paragraph::new(Text::from(help_lines)).block(Block::new().borders(Borders::ALL));
     frame.render_widget(help, help_area);
     draw_error_popup(app, frame);
@@ -116,7 +122,7 @@ pub fn handle_mouse(app: &mut App, mouse: crossterm::event::MouseEvent) {
     }
 }
 
-fn help_spans_for_mode(mode: &TerminalMode) -> Vec<Span<'static>> {
+fn help_spans_for_mode(mode: &TerminalMode, keyboard_enhanced: bool) -> Vec<Span<'static>> {
     match mode {
         TerminalMode::Insert => {
             let mut spans = vec![
@@ -126,7 +132,12 @@ fn help_spans_for_mode(mode: &TerminalMode) -> Vec<Span<'static>> {
                 ),
                 sep_span(),
             ];
-            spans.extend(help_spans(&[("Ctrl+Esc", "control mode")]));
+            let escape_hint: &'static str = if keyboard_enhanced {
+                "Ctrl+Esc"
+            } else {
+                "Ctrl+Space"
+            };
+            spans.extend(help_spans(&[(escape_hint, "control mode")]));
             spans
         }
         TerminalMode::Control => {
@@ -154,7 +165,10 @@ fn help_spans_for_mode(mode: &TerminalMode) -> Vec<Span<'static>> {
 }
 
 fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
-    if code == KeyCode::Esc && modifiers == KeyModifiers::CONTROL {
+    let is_escape =
+        (app.keyboard_enhanced && code == KeyCode::Esc && modifiers == KeyModifiers::CONTROL)
+            || (code == KeyCode::Char(' ') && modifiers == KeyModifiers::CONTROL);
+    if is_escape {
         app.terminal_mode = TerminalMode::Control;
         return;
     }

@@ -41,13 +41,14 @@ pub struct App {
     pub show_settings: bool,
     pub settings_cursor: usize,
     pub settings_baud_input: Option<String>,
+    pub keyboard_enhanced: bool,
     clipboard: Option<arboard::Clipboard>,
 }
 
 const MAX_SCROLLBACK: usize = 10000;
 
 impl App {
-    pub fn new(hold: bool) -> Self {
+    pub fn new(hold: bool, keyboard_enhanced: bool) -> Self {
         let ports = serialport::available_ports().unwrap_or_default();
         Self {
             screen: Screen::PortSelect,
@@ -68,11 +69,17 @@ impl App {
             show_settings: false,
             settings_cursor: 0,
             settings_baud_input: None,
+            keyboard_enhanced,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
 
-    pub fn with_port(port_name: &str, config: PortConfig, hold: bool) -> Self {
+    pub fn with_port(
+        port_name: &str,
+        config: PortConfig,
+        hold: bool,
+        keyboard_enhanced: bool,
+    ) -> Self {
         let (connection, errors, screen) = match serial::open(port_name, &config) {
             Ok((tx, rx)) => (Some((tx, rx)), Vec::new(), Screen::Terminal),
             Err(e) => (
@@ -104,6 +111,7 @@ impl App {
             show_settings: false,
             settings_cursor: 0,
             settings_baud_input: None,
+            keyboard_enhanced,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
