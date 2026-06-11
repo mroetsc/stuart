@@ -49,7 +49,7 @@ const MAX_SCROLLBACK: usize = 10000;
 
 impl App {
     pub fn new(hold: bool, keyboard_enhanced: bool) -> Self {
-        let ports = serialport::available_ports().unwrap_or_default();
+        let ports = sorted_ports(serialport::available_ports().unwrap_or_default());
         Self {
             screen: Screen::PortSelect,
             ports,
@@ -94,7 +94,7 @@ impl App {
         };
         Self {
             screen,
-            ports: serialport::available_ports().unwrap_or_default(),
+            ports: sorted_ports(serialport::available_ports().unwrap_or_default()),
             selected: 0,
             exit: false,
             connection,
@@ -133,8 +133,12 @@ impl App {
     }
 
     pub fn refresh_ports(&mut self) {
-        self.ports = serialport::available_ports().unwrap_or_default();
-        self.selected = self.selected.min(self.ports.len().saturating_sub(1));
+        let previous = self.ports.get(self.selected).map(|p| p.port_name.clone());
+        self.ports = sorted_ports(serialport::available_ports().unwrap_or_default());
+        self.selected = previous
+            .and_then(|name| self.ports.iter().position(|p| p.port_name == name))
+            .unwrap_or(0)
+            .min(self.ports.len().saturating_sub(1));
     }
 
     pub fn push_error(&mut self, msg: String) {
@@ -342,6 +346,38 @@ impl App {
             }
         }
     }
+}
+
+fn port_sort_key(name: &str) -> (&str, u32) {
+    let num_start = name
+        .rfind(|c: char| !c.is_ascii_digit())
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    let prefix = &name[..num_start];
+    let num: u32 = name[num_start..].parse().unwrap_or(0);
+    (prefix, num)
+}
+
+fn port_priority(name: &str) -> u8 {
+    let base = name.rsplit('/').next().unwrap_or(name);
+    const COMMON: &[&str] = &["ttyUSB", "ttyACM", "ttyAMA", "COM", "cu."];
+    if COMMON.iter().any(|p| base.starts_with(p)) {
+        0
+    } else {
+        1
+    }
+}
+
+fn sorted_ports(mut ports: Vec<SerialPortInfo>) -> Vec<SerialPortInfo> {
+    ports.sort_by(|a, b| {
+        let (ap, an) = port_sort_key(&a.port_name);
+        let (bp, bn) = port_sort_key(&b.port_name);
+        port_priority(&a.port_name)
+            .cmp(&port_priority(&b.port_name))
+            .then(ap.cmp(bp))
+            .then(an.cmp(&bn))
+    });
+    ports
 }
 
 fn friendly_serial_error(raw: &str) -> String {
