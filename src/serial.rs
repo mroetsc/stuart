@@ -25,6 +25,7 @@ pub struct PortConfig {
     pub stop_bits: StopBits,
     pub parity: Parity,
     pub flow_control: FlowControl,
+    pub no_lock: bool,
 }
 
 impl Default for PortConfig {
@@ -35,6 +36,7 @@ impl Default for PortConfig {
             stop_bits: StopBits::One,
             parity: Parity::None,
             flow_control: FlowControl::None,
+            no_lock: false,
         }
     }
 }
@@ -48,6 +50,7 @@ pub fn open(
         .stop_bits(config.stop_bits)
         .parity(config.parity)
         .flow_control(config.flow_control)
+        .exclusive(!config.no_lock)
         .timeout(Duration::from_millis(10))
         .open()?;
 

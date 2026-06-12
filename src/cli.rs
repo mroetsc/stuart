@@ -1,5 +1,5 @@
 use clap::{CommandFactory, Parser, ValueEnum};
-use clap_complete::{Shell, generate};
+use clap_complete::{generate, Shell};
 
 use crate::serial::{DataBits, FlowControl, Parity, PortConfig, StopBits};
 
@@ -107,6 +107,10 @@ struct Cli {
     )]
     flow_control: FlowControlArg,
 
+    /// Don't lock the port
+    #[arg(long = "no-lock", help_heading = "Behavior", display_order = 6)]
+    no_lock: bool,
+
     /// Keep terminal open and reconnect if the device disconnects [default]
     #[arg(
         short = 'k',
@@ -114,7 +118,7 @@ struct Cli {
         default_value = "true",
         overrides_with = "no_keep_open",
         help_heading = "Behavior",
-        display_order = 6
+        display_order = 7
     )]
     keep_open: bool,
 
@@ -123,12 +127,12 @@ struct Cli {
         long = "no-keep-open",
         overrides_with = "keep_open",
         help_heading = "Behavior",
-        display_order = 7
+        display_order = 8
     )]
     no_keep_open: bool,
 
     /// Generate shell completions
-    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 8)]
+    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 9)]
     completions: Option<Shell>,
 
     /// Print help
@@ -178,6 +182,7 @@ pub fn parse() -> Option<Args> {
                 FlowControlArg::Software => FlowControl::Software,
                 FlowControlArg::Hardware => FlowControl::Hardware,
             },
+            no_lock: cli.no_lock,
         },
         hold: !cli.no_keep_open,
     })
