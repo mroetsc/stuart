@@ -209,6 +209,44 @@ impl App {
         }
     }
 
+    pub fn echo_local(&mut self, bytes: &[u8]) {
+        use crossterm::style::{Color, ResetColor, SetForegroundColor};
+
+        const ECHO_COLOR: Color = Color::Rgb { r: 255, g: 165, b: 0 };
+
+        let mut parser_feed: Vec<u8> = Vec::new();
+
+        // bit hacky but works
+        match bytes {
+            [0x0d] => {
+                // enter advances line
+                parser_feed.extend_from_slice(b"\r\n");
+                if let Some(last) = self.scrollback.last_mut() && !last.ends_with('\n') {
+                    last.push('\n');
+                }
+            }
+            [b @ 0x20..=0x7e] => {
+                // display everything ascii in color
+                let seq = format!("{}{}{}", SetForegroundColor(ECHO_COLOR), *b as char, ResetColor);
+                parser_feed.extend_from_slice(seq.as_bytes());
+                let ch = *b as char;
+                match self.scrollback.last_mut() {
+                    Some(last) if !last.ends_with('\n') => last.push(ch),
+                    _ => self.scrollback.push(ch.to_string()),
+                }
+            }
+            _ => {
+                // pass anything else like arrow keys through,
+                // so parser handles cursor movement
+                parser_feed.extend_from_slice(bytes);
+            }
+        }
+
+        if !parser_feed.is_empty() {
+            self.parser.process(&parser_feed);
+        }
+    }
+
     pub fn change_baud(&mut self, delta: i32) {
         let current = crate::serial::BAUD_RATES
             .iter()

@@ -178,6 +178,9 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
         let mut buf = [0u8; 16];
         if let Ok(n) = t_event.encode(&mut buf, terminput::Encoding::Xterm) {
             app.send_bytes(buf[..n].to_vec());
+            if app.local_echo {
+                app.echo_local(&bytes);
+            }
         }
     }
 }
