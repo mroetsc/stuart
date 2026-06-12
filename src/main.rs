@@ -35,6 +35,7 @@ fn main() {
             app
         }
     };
+    app.local_echo = args.local_echo;
 
     ui::run(&mut app, &mut terminal).unwrap();
 

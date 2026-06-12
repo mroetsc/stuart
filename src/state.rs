@@ -42,6 +42,7 @@ pub struct App {
     pub settings_cursor: usize,
     pub settings_baud_input: Option<String>,
     pub keyboard_enhanced: bool,
+    pub local_echo: bool,
     clipboard: Option<arboard::Clipboard>,
 }
 
@@ -70,6 +71,7 @@ impl App {
             settings_cursor: 0,
             settings_baud_input: None,
             keyboard_enhanced,
+            local_echo: false,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -112,6 +114,7 @@ impl App {
             settings_cursor: 0,
             settings_baud_input: None,
             keyboard_enhanced,
+            local_echo: false,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }

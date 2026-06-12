@@ -107,8 +107,17 @@ struct Cli {
     )]
     flow_control: FlowControlArg,
 
+    /// Echo typed characters locally (for devices that don't echo)
+    #[arg(
+        short = 'e',
+        long = "local-echo",
+        help_heading = "Behavior",
+        display_order = 6
+    )]
+    local_echo: bool,
+
     /// Don't lock the port
-    #[arg(long = "no-lock", help_heading = "Behavior", display_order = 6)]
+    #[arg(long = "no-lock", help_heading = "Behavior", display_order = 7)]
     no_lock: bool,
 
     /// Keep terminal open and reconnect if the device disconnects [default]
@@ -118,7 +127,7 @@ struct Cli {
         default_value = "true",
         overrides_with = "no_keep_open",
         help_heading = "Behavior",
-        display_order = 7
+        display_order = 8
     )]
     keep_open: bool,
 
@@ -127,20 +136,20 @@ struct Cli {
         long = "no-keep-open",
         overrides_with = "keep_open",
         help_heading = "Behavior",
-        display_order = 8
+        display_order = 9
     )]
     no_keep_open: bool,
 
     /// Generate shell completions
-    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 9)]
+    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 10)]
     completions: Option<Shell>,
 
     /// Print help
-    #[arg(short, long, action = clap::ArgAction::Help, help_heading = "Options", display_order = 9)]
+    #[arg(short, long, action = clap::ArgAction::Help, help_heading = "Options", display_order = 11)]
     help: Option<bool>,
 
     /// Print version
-    #[arg(short = 'V', long, action = clap::ArgAction::Version, help_heading = "Options", display_order = 10)]
+    #[arg(short = 'V', long, action = clap::ArgAction::Version, help_heading = "Options", display_order = 12)]
     version: Option<bool>,
 }
 
@@ -148,6 +157,7 @@ pub struct Args {
     pub port: Option<String>,
     pub config: PortConfig,
     pub hold: bool,
+    pub local_echo: bool,
 }
 
 pub fn parse() -> Option<Args> {
@@ -185,5 +195,6 @@ pub fn parse() -> Option<Args> {
             no_lock: cli.no_lock,
         },
         hold: !cli.no_keep_open,
+        local_echo: cli.local_echo,
     })
 }

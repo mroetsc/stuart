@@ -1,10 +1,10 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::{
-    Frame,
     layout::Rect,
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph},
+    Frame,
 };
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
@@ -19,6 +19,7 @@ const SETTINGS: &[&str] = &[
     "Stop Bits",
     "Parity",
     "Flow Control",
+    "Local Echo",
 ];
 
 pub fn draw(app: &App, frame: &mut Frame) {
@@ -193,6 +194,13 @@ fn setting_value(app: &App, index: usize) -> String {
             FlowControl::Software => "Software (XON/XOFF)".to_string(),
             FlowControl::Hardware => "Hardware (RTS/CTS)".to_string(),
         },
+        5 => {
+            if app.local_echo {
+                "On".to_string()
+            } else {
+                "Off".to_string()
+            }
+        }
         _ => String::new(),
     }
 }
@@ -256,6 +264,9 @@ fn cycle_setting(app: &mut App, dir: i32) {
             let next = (current + dir).rem_euclid(opts.len() as i32) as usize;
             app.port_config.flow_control = opts[next];
             app.apply_port_config();
+        }
+        5 => {
+            app.local_echo = !app.local_echo;
         }
         _ => {}
     }
