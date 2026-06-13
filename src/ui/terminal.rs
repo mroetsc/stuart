@@ -177,10 +177,19 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
     if let Ok(t_event) = terminput_crossterm::to_terminput(key_event) {
         let mut buf = [0u8; 16];
         if let Ok(n) = t_event.encode(&mut buf, terminput::Encoding::Xterm) {
-            app.send_bytes(buf[..n].to_vec());
+            let mut bytes = buf[..n].to_vec();
             if app.local_echo {
                 app.echo_local(&bytes);
             }
+            if bytes == [0x0d] {
+                use crate::serial::NewlineEncoding;
+                match app.outgoing_newline {
+                    NewlineEncoding::CR => {}
+                    NewlineEncoding::LF => bytes[0] = 0x0a,
+                    NewlineEncoding::CRLF => bytes.push(0x0a),
+                }
+            }
+            app.send_bytes(bytes);
         }
     }
 }
