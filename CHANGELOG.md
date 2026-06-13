@@ -2,6 +2,27 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.1.2](https://github.com/mroetsc/stuart/compare/1b00b374ad4afc49a0a61f56295724148c857f58..0.1.2) - 2026-06-13
+#### Features
+- (**cli**) added arg for setting outgoing newline encoding - ([7b3fc5b](https://github.com/mroetsc/stuart/commit/7b3fc5b3736e40d7ca5b046b6f62460b5cac5f79)) - [@mroetsc](https://github.com/mroetsc)
+- (**cli**) added argument for local echo; also added to settings and state struct - ([f87d6a9](https://github.com/mroetsc/stuart/commit/f87d6a90048d58790d35689ef03bd2402c2c5438)) - [@mroetsc](https://github.com/mroetsc)
+- (**cli**) added option to not lock the port - ([1b00b37](https://github.com/mroetsc/stuart/commit/1b00b374ad4afc49a0a61f56295724148c857f58)) - [@mroetsc](https://github.com/mroetsc)
+- (**serial**) enum for newline encodings - ([bab71f2](https://github.com/mroetsc/stuart/commit/bab71f2c64ca080660e0362d0ffb1ede03e0910c)) - [@mroetsc](https://github.com/mroetsc)
+- (**state**) echo_local function to show locally typed bytes - ([96fa0c8](https://github.com/mroetsc/stuart/commit/96fa0c8dd3caabc928184c861184104bd67ba013)) - [@mroetsc](https://github.com/mroetsc)
+- (**ui**) added outgoing newline option in settings - ([5c11339](https://github.com/mroetsc/stuart/commit/5c1133978ba061762bfee0e5d7368ef8ee3785ff)) - [@mroetsc](https://github.com/mroetsc)
+- send newline configured newline to connected device - ([42ce5bb](https://github.com/mroetsc/stuart/commit/42ce5bb98197a5d227a105767a5c6ed99089bca3)) - [@mroetsc](https://github.com/mroetsc)
+#### Bug Fixes
+- (**ui**) control mode hardly readable on light terminals - ([d0c79b2](https://github.com/mroetsc/stuart/commit/d0c79b2e4b272040bbca0a510ae89b80aa5ed6d9)) - [@mroetsc](https://github.com/mroetsc)
+- no lock can only work on unix systems - ([f474100](https://github.com/mroetsc/stuart/commit/f4741009a7cd5b50ea4cb7d9259b87cc3487bc60)) - [@mroetsc](https://github.com/mroetsc)
+#### Documentation
+- updated readme with new features - ([2ac0bc8](https://github.com/mroetsc/stuart/commit/2ac0bc82e6205c68042f781061f02a8d48ec9d94)) - [@mroetsc](https://github.com/mroetsc)
+#### Refactoring
+- (**ui**) settings page now uses a common enum; also overhauled styling a bit - ([9a70bff](https://github.com/mroetsc/stuart/commit/9a70bff91790873b2ab2f250b7f95bcc722ea8c1)) - [@mroetsc](https://github.com/mroetsc)
+#### Miscellaneous Chores
+- (**docs**) reduced demo gif size - ([9fd2f15](https://github.com/mroetsc/stuart/commit/9fd2f158df12504a5944d5c8ee7027d5c3862f1d)) - [@mroetsc](https://github.com/mroetsc)
+
+- - -
+
 ## [0.1.1](https://github.com/mroetsc/stuart/compare/a6d2e500aca731bc424bfd7796c3e65f45123fe6..0.1.1) - 2026-06-11
 #### Features
 - (**cli**) better grouping for help output - ([7a77410](https://github.com/mroetsc/stuart/commit/7a77410cbb52cc0be74861b74bb6a9956f59596a)) - [@mroetsc](https://github.com/mroetsc)
