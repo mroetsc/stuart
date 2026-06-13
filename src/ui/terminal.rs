@@ -144,7 +144,7 @@ fn help_spans_for_mode(mode: &TerminalMode, keyboard_enhanced: bool) -> Vec<Span
             let mut spans = vec![
                 Span::styled(
                     " CONTROL ",
-                    Style::default().fg(Color::Black).bg(Color::Blue).bold(),
+                    Style::default().fg(Color::Black).bg(Color::Cyan).bold(),
                 ),
                 sep_span(),
             ];
