@@ -7,6 +7,7 @@ stuart - **S**imple **T**erminal **UART** is a TUI for communicating with serial
 
 - **Keep Open** - Ports are kept open when a device disconnects and automatically reconnect when the device is back
 - **VT100/ANSI emulation** - full color and cursor support
+- **Local Echo** - show typed text for devices that don't return it themselves
 - **Scrollback buffer** - up to 10,000 lines, mouse and keyboard scrolling
 - **Insert / Control modes** - vim-inspired controls
 - **Port Selection** - Select available ports and view information about them
@@ -57,8 +58,16 @@ Serial Settings:
   -f, --flow-control <FLOW>  Flow control [default: none] [possible values: none, software, hardware]
 
 Behavior:
-  -k, --keep-open     Keep terminal open and reconnect if the device disconnects [default]
-      --no-keep-open  Exit to port select when device disconnects
+  -e, --local-echo
+          Echo typed characters locally (for devices that don't echo)
+      --outgoing-newline <NEWLINE_ENCODING>
+          Encoding to send to the device when pressing Enter [default: cr] [possible values: cr, lf, crlf]
+      --no-lock
+          Don't lock the port
+  -k, --keep-open
+          Keep terminal open and reconnect if the device disconnects [default]
+      --no-keep-open
+          Exit to port select when device disconnects
 
 Extra:
       --completions <SHELL>  Generate shell completions [possible values: bash, elvish, fish, powershell, zsh]
