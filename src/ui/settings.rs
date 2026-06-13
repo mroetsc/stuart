@@ -20,6 +20,7 @@ const SETTINGS: &[&str] = &[
     "Parity",
     "Flow Control",
     "Local Echo",
+    "Outgoing Newline",
 ];
 
 pub fn draw(app: &App, frame: &mut Frame) {
@@ -201,6 +202,14 @@ fn setting_value(app: &App, index: usize) -> String {
                 "Off".to_string()
             }
         }
+        6 => {
+            use crate::serial::NewlineEncoding;
+            match app.outgoing_newline {
+                NewlineEncoding::CR => "CR".to_string(),
+                NewlineEncoding::LF => "LF".to_string(),
+                NewlineEncoding::CRLF => "CR+LF".to_string(),
+            }
+        }
         _ => String::new(),
     }
 }
@@ -267,6 +276,20 @@ fn cycle_setting(app: &mut App, dir: i32) {
         }
         5 => {
             app.local_echo = !app.local_echo;
+        }
+        6 => {
+            use crate::serial::NewlineEncoding;
+            let opts = [
+                NewlineEncoding::CR,
+                NewlineEncoding::LF,
+                NewlineEncoding::CRLF,
+            ];
+            let current = opts
+                .iter()
+                .position(|&n| n == app.outgoing_newline)
+                .unwrap_or(2) as i32;
+            let next = (current + dir).rem_euclid(opts.len() as i32) as usize;
+            app.outgoing_newline = opts[next];
         }
         _ => {}
     }
