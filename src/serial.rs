@@ -33,6 +33,7 @@ pub struct PortConfig {
     pub stop_bits: StopBits,
     pub parity: Parity,
     pub flow_control: FlowControl,
+    #[cfg(unix)]
     pub no_lock: bool,
 }
 
@@ -44,6 +45,7 @@ impl Default for PortConfig {
             stop_bits: StopBits::One,
             parity: Parity::None,
             flow_control: FlowControl::None,
+            #[cfg(unix)]
             no_lock: false,
         }
     }
@@ -53,14 +55,17 @@ pub fn open(
     port_name: &str,
     config: &PortConfig,
 ) -> Result<(Sender<Command>, Receiver<SerialEvent>), serialport::Error> {
-    let port = serialport::new(port_name, config.baud)
+    let builder = serialport::new(port_name, config.baud)
         .data_bits(config.data_bits)
         .stop_bits(config.stop_bits)
         .parity(config.parity)
         .flow_control(config.flow_control)
-        .exclusive(!config.no_lock)
-        .timeout(Duration::from_millis(10))
-        .open()?;
+        .timeout(Duration::from_millis(10));
+
+    #[cfg(unix)]
+    let builder = builder.exclusive(!config.no_lock);
+
+    let port = builder.open()?;
 
     let (cmd_tx, cmd_rx) = mpsc::channel::<Command>();
     let (event_tx, event_rx) = mpsc::channel::<SerialEvent>();

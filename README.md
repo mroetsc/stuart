@@ -62,6 +62,7 @@ Behavior:
           Echo typed characters locally (for devices that don't echo)
       --outgoing-newline <NEWLINE_ENCODING>
           Encoding to send to the device when pressing Enter [default: cr] [possible values: cr, lf, crlf]
+      [unix only]
       --no-lock
           Don't lock the port
   -k, --keep-open

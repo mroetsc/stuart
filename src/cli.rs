@@ -127,6 +127,7 @@ struct Cli {
     outgoing_newline: NewlineEncoding,
 
     /// Don't lock the port
+    #[cfg(unix)]
     #[arg(long = "no-lock", help_heading = "Behavior", display_order = 8)]
     no_lock: bool,
 
@@ -203,6 +204,7 @@ pub fn parse() -> Option<Args> {
                 FlowControlArg::Software => FlowControl::Software,
                 FlowControlArg::Hardware => FlowControl::Hardware,
             },
+            #[cfg(unix)]
             no_lock: cli.no_lock,
         },
         hold: !cli.no_keep_open,
