@@ -1,7 +1,7 @@
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::{generate, Shell};
 
-use crate::serial::{DataBits, FlowControl, Parity, PortConfig, StopBits};
+use crate::serial::{DataBits, FlowControl, NewlineEncoding, Parity, PortConfig, StopBits};
 
 #[derive(Clone, ValueEnum)]
 enum DataBitsArg {
@@ -116,8 +116,18 @@ struct Cli {
     )]
     local_echo: bool,
 
+    /// Encoding to send to the device when pressing Enter
+    #[arg(
+        long = "outgoing-newline",
+        value_name = "NEWLINE_ENCODING",
+        default_value = "cr",
+        help_heading = "Behavior",
+        display_order = 7
+    )]
+    outgoing_newline: NewlineEncoding,
+
     /// Don't lock the port
-    #[arg(long = "no-lock", help_heading = "Behavior", display_order = 7)]
+    #[arg(long = "no-lock", help_heading = "Behavior", display_order = 8)]
     no_lock: bool,
 
     /// Keep terminal open and reconnect if the device disconnects [default]
@@ -127,7 +137,7 @@ struct Cli {
         default_value = "true",
         overrides_with = "no_keep_open",
         help_heading = "Behavior",
-        display_order = 8
+        display_order = 9
     )]
     keep_open: bool,
 
@@ -136,20 +146,20 @@ struct Cli {
         long = "no-keep-open",
         overrides_with = "keep_open",
         help_heading = "Behavior",
-        display_order = 9
+        display_order = 10
     )]
     no_keep_open: bool,
 
     /// Generate shell completions
-    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 10)]
+    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 11)]
     completions: Option<Shell>,
 
     /// Print help
-    #[arg(short, long, action = clap::ArgAction::Help, help_heading = "Options", display_order = 11)]
+    #[arg(short, long, action = clap::ArgAction::Help, help_heading = "Options", display_order = 12)]
     help: Option<bool>,
 
     /// Print version
-    #[arg(short = 'V', long, action = clap::ArgAction::Version, help_heading = "Options", display_order = 12)]
+    #[arg(short = 'V', long, action = clap::ArgAction::Version, help_heading = "Options", display_order = 13)]
     version: Option<bool>,
 }
 
@@ -158,6 +168,7 @@ pub struct Args {
     pub config: PortConfig,
     pub hold: bool,
     pub local_echo: bool,
+    pub outgoing_newline: NewlineEncoding,
 }
 
 pub fn parse() -> Option<Args> {
@@ -196,5 +207,6 @@ pub fn parse() -> Option<Args> {
         },
         hold: !cli.no_keep_open,
         local_echo: cli.local_echo,
+        outgoing_newline: cli.outgoing_newline,
     })
 }

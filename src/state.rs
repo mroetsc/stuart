@@ -2,7 +2,7 @@ use serialport::SerialPortInfo;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 
-use crate::serial::{self, Command, PortConfig, SerialEvent};
+use crate::serial::{self, Command, NewlineEncoding, PortConfig, SerialEvent};
 
 #[derive(Debug, PartialEq)]
 pub enum Screen {
@@ -43,6 +43,7 @@ pub struct App {
     pub settings_baud_input: Option<String>,
     pub keyboard_enhanced: bool,
     pub local_echo: bool,
+    pub outgoing_newline: NewlineEncoding,
     clipboard: Option<arboard::Clipboard>,
 }
 
@@ -72,6 +73,7 @@ impl App {
             settings_baud_input: None,
             keyboard_enhanced,
             local_echo: false,
+            outgoing_newline: NewlineEncoding::CR,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -115,6 +117,7 @@ impl App {
             settings_baud_input: None,
             keyboard_enhanced,
             local_echo: false,
+            outgoing_newline: NewlineEncoding::CR,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
