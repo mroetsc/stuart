@@ -44,7 +44,7 @@ Download from the [releases page](https://github.com/mroetsc/stuart/releases) fo
 
 ## Usage
 
-```sh
+```text
 Usage: stuart [OPTIONS] [PORT]
 
 Arguments:
