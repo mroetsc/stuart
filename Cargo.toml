@@ -15,8 +15,10 @@ path = "src/main.rs"
 arboard = { version = "3.6.1", features = ["wayland-data-control"] }
 clap = { version = "4.6.1", features = ["derive"] }
 clap_complete = "4.6.5"
+config = "0.15.23"
 crossterm = "0.29.0"
 ratatui = "0.30.0"
+serde = { version = "1.0.228", features = ["derive"] }
 serialport = "4.9.0"
 strip-ansi-escapes = "0.2.1"
 terminput = "0.5.14"
