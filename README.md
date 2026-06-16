@@ -10,6 +10,7 @@ stuart - **S**imple **T**erminal **UART** is a TUI for communicating with serial
 - **Local Echo** - show typed text for devices that don't return it themselves
 - **Scrollback buffer** - up to 10,000 lines, mouse and keyboard scrolling
 - **Insert / Control modes** - vim-inspired controls
+- **Config file** - configure defaults for interacting with devices in a central config file
 - **Port Selection** - Select available ports and view information about them
 - **Clipboard copy** - copy entire scrollback with `c`
 - **Flush scrollback** - clear the screen with `f`
@@ -51,18 +52,17 @@ Arguments:
   [PORT]  Serial port to open
 
 Serial Settings:
-  -b, --baud <BAUDRATE>      Baud rate [default: 115200]
-  -d, --data-bits <BITS>     Data bits [default: 8] [possible values: 5, 6, 7, 8]
-  -s, --stop-bits <BITS>     Stop bits [default: 1] [possible values: 1, 2]
-  -p, --parity <PARITY>      Parity [default: none] [possible values: none, even, odd]
-  -f, --flow-control <FLOW>  Flow control [default: none] [possible values: none, software, hardware]
+  -b, --baud <BAUDRATE>      Baud rate
+  -d, --data-bits <BITS>     Data bits [possible values: 5, 6, 7, 8]
+  -s, --stop-bits <BITS>     Stop bits [possible values: 1, 2]
+  -p, --parity <PARITY>      Parity [possible values: none, even, odd]
+  -f, --flow-control <FLOW>  Flow control [possible values: none, software, hardware]
 
 Behavior:
   -e, --local-echo
           Echo typed characters locally (for devices that don't echo)
       --outgoing-newline <NEWLINE_ENCODING>
-          Encoding to send to the device when pressing Enter [default: cr] [possible values: cr, lf, crlf]
-      [unix only]
+          Encoding to send to the device when pressing Enter [possible values: cr, lf, crlf]
       --no-lock
           Don't lock the port
   -k, --keep-open
@@ -71,6 +71,7 @@ Behavior:
           Exit to port select when device disconnects
 
 Extra:
+      --create-config        Write a default config file
       --completions <SHELL>  Generate shell completions [possible values: bash, elvish, fish, powershell, zsh]
 
 Options:
@@ -145,6 +146,9 @@ cargo build --release
 # binary at target/release/stuart
 ```
 
+## Configuration
+Use the `--create-config` argument to create a new default configuration. Priority order of connfiguration values is: Application Defaults -> Config file -> CLI arguments, with CLI arguments having the highest priority.
+
 ## Shell Completions
 
 ```sh
@@ -159,9 +163,6 @@ stuart --completions fish > ~/.config/fish/completions/stuart.fish
 
 # elvish and powershell also supported
 ```
-
-## Roadmap
-- [ ] **0.2.0** - config file support
 
 ## Contributing
 Contributions are welcome, but make sure to file an [issue](https://github.com/mroetsc/stuart/issues) first to discuss features and implementation.
