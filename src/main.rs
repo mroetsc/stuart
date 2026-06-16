@@ -7,6 +7,7 @@ use crossterm::{
 };
 
 mod cli;
+mod config;
 mod serial;
 mod state;
 mod ui;
