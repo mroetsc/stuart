@@ -38,6 +38,53 @@ enum FlowControlArg {
     Hardware,
 }
 
+impl From<DataBitsArg> for DataBits {
+    fn from(value: DataBitsArg) -> Self {
+        match value {
+            DataBitsArg::Five => Self::Five,
+            DataBitsArg::Six => Self::Six,
+            DataBitsArg::Seven => Self::Seven,
+            DataBitsArg::Eight => Self::Eight,
+        }
+    }
+}
+
+impl From<StopBitsArg> for StopBits {
+    fn from(value: StopBitsArg) -> Self {
+        match value {
+            StopBitsArg::One => Self::One,
+            StopBitsArg::Two => Self::Two,
+        }
+    }
+}
+
+impl From<ParityArg> for Parity {
+    fn from(value: ParityArg) -> Self {
+        match value {
+            ParityArg::None => Self::None,
+            ParityArg::Even => Self::Even,
+            ParityArg::Odd => Self::Odd,
+        }
+    }
+}
+
+impl From<FlowControlArg> for FlowControl {
+    fn from(value: FlowControlArg) -> Self {
+        match value {
+            FlowControlArg::None => Self::None,
+            FlowControlArg::Software => Self::Software,
+            FlowControlArg::Hardware => Self::Hardware,
+        }
+    }
+}
+
+/// cli arg > file config > default
+fn resolve<A: Into<T>, F, T>(cli: Option<A>, file: Option<F>, parse: fn(F) -> T, default: T) -> T {
+    cli.map(Into::into)
+        .or_else(|| file.map(parse))
+        .unwrap_or(default)
+}
+
 /// A serial terminal TUI
 #[derive(Parser)]
 #[command(
@@ -145,7 +192,7 @@ struct Cli {
     )]
     no_keep_open: bool,
 
-    /// Write a default config file; exits after writing
+    /// Write a default config file
     #[arg(long = "create-config", help_heading = "Extra", display_order = 11)]
     create_config: bool,
 
@@ -204,69 +251,6 @@ pub fn parse() -> Option<Args> {
         return None;
     }
 
-    let baud = cli.baud.or(file.serial.baud).unwrap_or(115200);
-
-    let data_bits = cli
-        .data_bits
-        .map(|v| match v {
-            DataBitsArg::Five => DataBits::Five,
-            DataBitsArg::Six => DataBits::Six,
-            DataBitsArg::Seven => DataBits::Seven,
-            DataBitsArg::Eight => DataBits::Eight,
-        })
-        .or_else(|| file.serial.data_bits.map(cfg::parse_data_bits))
-        .unwrap_or(DataBits::Eight);
-
-    let stop_bits = cli
-        .stop_bits
-        .map(|v| match v {
-            StopBitsArg::One => StopBits::One,
-            StopBitsArg::Two => StopBits::Two,
-        })
-        .or_else(|| file.serial.stop_bits.map(cfg::parse_stop_bits))
-        .unwrap_or(StopBits::One);
-
-    let parity = cli
-        .parity
-        .map(|v| match v {
-            ParityArg::None => Parity::None,
-            ParityArg::Even => Parity::Even,
-            ParityArg::Odd => Parity::Odd,
-        })
-        .or_else(|| file.serial.parity.as_deref().map(cfg::parse_parity))
-        .unwrap_or(Parity::None);
-
-    let flow_control = cli
-        .flow_control
-        .map(|v| match v {
-            FlowControlArg::None => FlowControl::None,
-            FlowControlArg::Software => FlowControl::Software,
-            FlowControlArg::Hardware => FlowControl::Hardware,
-        })
-        .or_else(|| {
-            file.serial
-                .flow_control
-                .as_deref()
-                .map(cfg::parse_flow_control)
-        })
-        .unwrap_or(FlowControl::None);
-
-    let local_echo = if cli.local_echo {
-        true
-    } else {
-        file.behavior.local_echo.unwrap_or(false)
-    };
-
-    let outgoing_newline = cli
-        .outgoing_newline
-        .or_else(|| {
-            file.behavior
-                .outgoing_newline
-                .as_deref()
-                .map(cfg::parse_newline)
-        })
-        .unwrap_or(NewlineEncoding::CR);
-
     let hold = if cli.no_keep_open {
         false
     } else if cli.keep_open {
@@ -275,19 +259,46 @@ pub fn parse() -> Option<Args> {
         file.behavior.keep_open.unwrap_or(true)
     };
 
+    let local_echo = cli.local_echo || file.behavior.local_echo.unwrap_or(false);
+
     Some(Args {
         port: cli.port,
         config: PortConfig {
-            baud,
-            data_bits,
-            stop_bits,
-            parity,
-            flow_control,
+            baud: cli.baud.or(file.serial.baud).unwrap_or(115200),
+            data_bits: resolve(
+                cli.data_bits,
+                file.serial.data_bits,
+                cfg::parse_data_bits,
+                DataBits::Eight,
+            ),
+            stop_bits: resolve(
+                cli.stop_bits,
+                file.serial.stop_bits,
+                cfg::parse_stop_bits,
+                StopBits::One,
+            ),
+            parity: resolve(
+                cli.parity,
+                file.serial.parity.as_deref(),
+                cfg::parse_parity,
+                Parity::None,
+            ),
+            flow_control: resolve(
+                cli.flow_control,
+                file.serial.flow_control.as_deref(),
+                cfg::parse_flow_control,
+                FlowControl::None,
+            ),
             #[cfg(unix)]
             no_lock: cli.no_lock,
         },
         hold,
         local_echo,
-        outgoing_newline,
+        outgoing_newline: resolve(
+            cli.outgoing_newline,
+            file.behavior.outgoing_newline.as_deref(),
+            cfg::parse_newline,
+            NewlineEncoding::CR,
+        ),
     })
 }
