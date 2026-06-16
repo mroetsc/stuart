@@ -2,6 +2,25 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.2.0](https://github.com/mroetsc/stuart/compare/1cc1082531fa33f396e281c51fd12d336d519e3a..0.2.0) - 2026-06-16
+#### Features
+- (**cli**) config value priority and args for creating new default config - ([0f87016](https://github.com/mroetsc/stuart/commit/0f870168121c02fec5ba9bd1c7bf49e192dd1b55)) - [@mroetsc](https://github.com/mroetsc)
+- (**config**) implemented first draft of config module - ([4911c73](https://github.com/mroetsc/stuart/commit/4911c73334825e433b90c7220f43e44405d5cd54)) - [@mroetsc](https://github.com/mroetsc)
+#### Documentation
+- updated readme with config file info - ([3bbe66d](https://github.com/mroetsc/stuart/commit/3bbe66dee842c6cf353b479ccd5bc83baaf17923)) - [@mroetsc](https://github.com/mroetsc)
+#### Build system
+- configured release profile and set config crate feature flags to reduce binary size - ([2972eb5](https://github.com/mroetsc/stuart/commit/2972eb51d13c44585d10fa9a5f68b7b6f51496ea)) - [@mroetsc](https://github.com/mroetsc)
+#### Refactoring
+- (**cli**) used From impls for mapping Arg structs more cleanly - ([09b0c9e](https://github.com/mroetsc/stuart/commit/09b0c9ed3053971931f5c5b16cd58a8f79c76afe)) - [@mroetsc](https://github.com/mroetsc)
+- (**config**) improve validation, error handling, and cross-platform path resolution - ([4fef885](https://github.com/mroetsc/stuart/commit/4fef8857abd816ddba3a9ef55bf0a25b5d94f535)) - [@mroetsc](https://github.com/mroetsc)
+#### Miscellaneous Chores
+- (**cli**) minor spelling changes - ([17cef55](https://github.com/mroetsc/stuart/commit/17cef55e99a90d8f546444b06b4092088ce84b62)) - [@mroetsc](https://github.com/mroetsc)
+- (**docs**) changed help output highlighting in readme - ([1cc1082](https://github.com/mroetsc/stuart/commit/1cc1082531fa33f396e281c51fd12d336d519e3a)) - [@mroetsc](https://github.com/mroetsc)
+- dded dirs dependency - ([95eba5d](https://github.com/mroetsc/stuart/commit/95eba5d3c1f625d5ee40e1a5f57c638acc0cc6ea)) - [@mroetsc](https://github.com/mroetsc)
+- added serde and config depedency - ([10d5b32](https://github.com/mroetsc/stuart/commit/10d5b327fb55a0693a41f9641696ecab9c8a894f)) - [@mroetsc](https://github.com/mroetsc)
+
+- - -
+
 ## [0.1.2](https://github.com/mroetsc/stuart/compare/1b00b374ad4afc49a0a61f56295724148c857f58..0.1.2) - 2026-06-13
 #### Features
 - (**cli**) added arg for setting outgoing newline encoding - ([7b3fc5b](https://github.com/mroetsc/stuart/commit/7b3fc5b3736e40d7ca5b046b6f62460b5cac5f79)) - [@mroetsc](https://github.com/mroetsc)
