@@ -1,6 +1,7 @@
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::{generate, Shell};
 
+use crate::config as cfg;
 use crate::serial::{DataBits, FlowControl, NewlineEncoding, Parity, PortConfig, StopBits};
 
 #[derive(Clone, ValueEnum)]
@@ -57,55 +58,50 @@ struct Cli {
         short,
         long,
         value_name = "BAUDRATE",
-        default_value = "115200",
         help_heading = "Serial Settings",
         display_order = 1
     )]
-    baud: u32,
+    baud: Option<u32>,
 
     /// Data bits
     #[arg(
         short,
         long,
         value_name = "BITS",
-        default_value = "8",
         help_heading = "Serial Settings",
         display_order = 2
     )]
-    data_bits: DataBitsArg,
+    data_bits: Option<DataBitsArg>,
 
     /// Stop bits
     #[arg(
         short,
         long,
         value_name = "BITS",
-        default_value = "1",
         help_heading = "Serial Settings",
         display_order = 3
     )]
-    stop_bits: StopBitsArg,
+    stop_bits: Option<StopBitsArg>,
 
     /// Parity
     #[arg(
         short,
         long,
         value_name = "PARITY",
-        default_value = "none",
         help_heading = "Serial Settings",
         display_order = 4
     )]
-    parity: ParityArg,
+    parity: Option<ParityArg>,
 
     /// Flow control
     #[arg(
         short,
         long,
         value_name = "FLOW",
-        default_value = "none",
         help_heading = "Serial Settings",
         display_order = 5
     )]
-    flow_control: FlowControlArg,
+    flow_control: Option<FlowControlArg>,
 
     /// Echo typed characters locally (for devices that don't echo)
     #[arg(
@@ -120,11 +116,10 @@ struct Cli {
     #[arg(
         long = "outgoing-newline",
         value_name = "NEWLINE_ENCODING",
-        default_value = "cr",
         help_heading = "Behavior",
         display_order = 7
     )]
-    outgoing_newline: NewlineEncoding,
+    outgoing_newline: Option<NewlineEncoding>,
 
     /// Don't lock the port
     #[cfg(unix)]
@@ -135,7 +130,6 @@ struct Cli {
     #[arg(
         short = 'k',
         long = "keep-open",
-        default_value = "true",
         overrides_with = "no_keep_open",
         help_heading = "Behavior",
         display_order = 9
@@ -151,16 +145,24 @@ struct Cli {
     )]
     no_keep_open: bool,
 
+    /// Write a default config file; exits after writing
+    #[arg(long = "create-config", help_heading = "Extra", display_order = 11)]
+    create_config: bool,
+
+    /// Overwrite existing config file (only valid with --create-config)
+    #[arg(long = "force", requires = "create_config", hide = true)]
+    force: bool,
+
     /// Generate shell completions
-    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 11)]
+    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 12)]
     completions: Option<Shell>,
 
     /// Print help
-    #[arg(short, long, action = clap::ArgAction::Help, help_heading = "Options", display_order = 12)]
+    #[arg(short, long, action = clap::ArgAction::Help, help_heading = "Options", display_order = 13)]
     help: Option<bool>,
 
     /// Print version
-    #[arg(short = 'V', long, action = clap::ArgAction::Version, help_heading = "Options", display_order = 13)]
+    #[arg(short = 'V', long, action = clap::ArgAction::Version, help_heading = "Options", display_order = 14)]
     version: Option<bool>,
 }
 
@@ -180,35 +182,112 @@ pub fn parse() -> Option<Args> {
         return None;
     }
 
+    if cli.create_config {
+        match cfg::write_default(cli.force) {
+            Ok(path) => eprintln!("config written to {}", path.display()),
+            Err(e) => eprintln!("error: {e}"),
+        }
+        return None;
+    }
+
+    let file = cfg::load();
+
+    let errors = cfg::validate(&file);
+    if !errors.is_empty() {
+        eprintln!(
+            "error: invalid values in config file ({})",
+            cfg::config_path_display()
+        );
+        for e in &errors {
+            eprintln!("  {e}");
+        }
+        return None;
+    }
+
+    let baud = cli.baud.or(file.serial.baud).unwrap_or(115200);
+
+    let data_bits = cli
+        .data_bits
+        .map(|v| match v {
+            DataBitsArg::Five => DataBits::Five,
+            DataBitsArg::Six => DataBits::Six,
+            DataBitsArg::Seven => DataBits::Seven,
+            DataBitsArg::Eight => DataBits::Eight,
+        })
+        .or_else(|| file.serial.data_bits.map(cfg::parse_data_bits))
+        .unwrap_or(DataBits::Eight);
+
+    let stop_bits = cli
+        .stop_bits
+        .map(|v| match v {
+            StopBitsArg::One => StopBits::One,
+            StopBitsArg::Two => StopBits::Two,
+        })
+        .or_else(|| file.serial.stop_bits.map(cfg::parse_stop_bits))
+        .unwrap_or(StopBits::One);
+
+    let parity = cli
+        .parity
+        .map(|v| match v {
+            ParityArg::None => Parity::None,
+            ParityArg::Even => Parity::Even,
+            ParityArg::Odd => Parity::Odd,
+        })
+        .or_else(|| file.serial.parity.as_deref().map(cfg::parse_parity))
+        .unwrap_or(Parity::None);
+
+    let flow_control = cli
+        .flow_control
+        .map(|v| match v {
+            FlowControlArg::None => FlowControl::None,
+            FlowControlArg::Software => FlowControl::Software,
+            FlowControlArg::Hardware => FlowControl::Hardware,
+        })
+        .or_else(|| {
+            file.serial
+                .flow_control
+                .as_deref()
+                .map(cfg::parse_flow_control)
+        })
+        .unwrap_or(FlowControl::None);
+
+    let local_echo = if cli.local_echo {
+        true
+    } else {
+        file.behavior.local_echo.unwrap_or(false)
+    };
+
+    let outgoing_newline = cli
+        .outgoing_newline
+        .or_else(|| {
+            file.behavior
+                .outgoing_newline
+                .as_deref()
+                .map(cfg::parse_newline)
+        })
+        .unwrap_or(NewlineEncoding::CR);
+
+    let hold = if cli.no_keep_open {
+        false
+    } else if cli.keep_open {
+        true
+    } else {
+        file.behavior.keep_open.unwrap_or(true)
+    };
+
     Some(Args {
         port: cli.port,
         config: PortConfig {
-            baud: cli.baud,
-            data_bits: match cli.data_bits {
-                DataBitsArg::Five => DataBits::Five,
-                DataBitsArg::Six => DataBits::Six,
-                DataBitsArg::Seven => DataBits::Seven,
-                DataBitsArg::Eight => DataBits::Eight,
-            },
-            stop_bits: match cli.stop_bits {
-                StopBitsArg::One => StopBits::One,
-                StopBitsArg::Two => StopBits::Two,
-            },
-            parity: match cli.parity {
-                ParityArg::None => Parity::None,
-                ParityArg::Even => Parity::Even,
-                ParityArg::Odd => Parity::Odd,
-            },
-            flow_control: match cli.flow_control {
-                FlowControlArg::None => FlowControl::None,
-                FlowControlArg::Software => FlowControl::Software,
-                FlowControlArg::Hardware => FlowControl::Hardware,
-            },
+            baud,
+            data_bits,
+            stop_bits,
+            parity,
+            flow_control,
             #[cfg(unix)]
             no_lock: cli.no_lock,
         },
-        hold: !cli.no_keep_open,
-        local_echo: cli.local_echo,
-        outgoing_newline: cli.outgoing_newline,
+        hold,
+        local_echo,
+        outgoing_newline,
     })
 }
