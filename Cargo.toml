@@ -15,7 +15,7 @@ path = "src/main.rs"
 arboard = { version = "3.6.1", features = ["wayland-data-control"] }
 clap = { version = "4.6.1", features = ["derive"] }
 clap_complete = "4.6.5"
-config = "0.15.23"
+config = { version = "0.14", default-features = false, features = ["toml"] }
 crossterm = "0.29.0"
 dirs = "6.0.0"
 ratatui = "0.30.0"
@@ -25,3 +25,8 @@ strip-ansi-escapes = "0.2.1"
 terminput = "0.5.14"
 terminput-crossterm = "0.4.10"
 vt100 = "0.16.2"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
