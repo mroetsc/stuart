@@ -237,7 +237,16 @@ pub fn parse() -> Option<Args> {
         return None;
     }
 
-    let file = cfg::load();
+    let file = match cfg::load() {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!(
+                "error: failed to load config file ({}): {error}",
+                cfg::config_path_display()
+            );
+            return None;
+        }
+    };
 
     let errors = cfg::validate(&file);
     if !errors.is_empty() {
@@ -245,8 +254,8 @@ pub fn parse() -> Option<Args> {
             "error: invalid values in config file ({})",
             cfg::config_path_display()
         );
-        for e in &errors {
-            eprintln!("  {e}");
+        for error in &errors {
+            eprintln!("  {error}");
         }
         return None;
     }

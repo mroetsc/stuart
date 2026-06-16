@@ -27,39 +27,28 @@ pub struct BehaviorConfig {
     pub keep_open: Option<bool>,
 }
 
-pub fn load() -> FileConfig {
+const VALID_PARITY: &[&str] = &["none", "even", "odd"];
+const VALID_FLOW_CONTROL: &[&str] = &["none", "software", "hardware"];
+const VALID_NEWLINE: &[&str] = &["cr", "lf", "crlf"];
+
+pub fn load() -> Result<FileConfig, String> {
     let Some(path) = config_path() else {
-        return FileConfig::default();
+        return Ok(FileConfig::default());
     };
     config::Config::builder()
         .add_source(config::File::from(path).required(false))
         .build()
         .and_then(|c| c.try_deserialize())
-        .unwrap_or_default()
+        .map_err(|error| error.to_string())
 }
 
 pub fn config_path_display() -> String {
     config_path()
-        .map(|p| p.display().to_string())
+        .map(|path| path.display().to_string())
         .unwrap_or_else(|| "(unknown)".to_string())
 }
 
-const DEFAULT_CONFIG: &str = r#"# stuart configuration
-# All values are optional. Unset fields fall back to the app default.
-# CLI flags always override these.
-
-[serial]
-baud = 115200
-data_bits = 8       # 5 | 6 | 7 | 8
-stop_bits = 1       # 1 | 2
-parity = "none"     # none | even | odd
-flow_control = "none"  # none | software | hardware
-
-[behavior]
-local_echo = false
-outgoing_newline = "cr"  # cr | lf | crlf
-keep_open = true
-"#;
+const DEFAULT_CONFIG: &str = include_str!("../example.config.toml");
 
 pub fn write_default(force: bool) -> Result<PathBuf, String> {
     let path = config_path().ok_or_else(|| "cannot determine config path".to_string())?;
@@ -70,87 +59,74 @@ pub fn write_default(force: bool) -> Result<PathBuf, String> {
         ));
     }
     if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("failed to create config dir: {e}"))?;
+        std::fs::create_dir_all(dir)
+            .map_err(|error| format!("failed to create config dir: {error}"))?;
     }
-    std::fs::write(&path, DEFAULT_CONFIG).map_err(|e| format!("failed to write config: {e}"))?;
+    std::fs::write(&path, DEFAULT_CONFIG)
+        .map_err(|error| format!("failed to write config: {error}"))?;
     Ok(path)
 }
 
-pub fn validate(cfg: &FileConfig) -> Vec<String> {
+pub fn validate(config: &FileConfig) -> Vec<String> {
     let mut errors = Vec::new();
 
-    if let Some(baud) = cfg.serial.baud
+    if let Some(baud) = config.serial.baud
         && baud == 0 {
             errors.push("serial.baud: must be greater than 0".to_string());
         }
 
-    if let Some(db) = cfg.serial.data_bits
-        && !(5..=8).contains(&db) {
+    if let Some(data_bits) = config.serial.data_bits
+        && !(5..=8).contains(&data_bits) {
             errors.push(format!(
-                "serial.data_bits: got {db}, valid values: 5 | 6 | 7 | 8"
+                "serial.data_bits: got {data_bits}, valid values: 5 | 6 | 7 | 8"
             ));
         }
 
-    if let Some(sb) = cfg.serial.stop_bits
-        && sb != 1 && sb != 2 {
-            errors.push(format!("serial.stop_bits: got {sb}, valid values: 1 | 2"));
-        }
-
-    if let Some(ref p) = cfg.serial.parity {
-        let valid = ["none", "even", "odd"];
-        if !valid.contains(&p.to_lowercase().as_str()) {
+    if let Some(stop_bits) = config.serial.stop_bits
+        && stop_bits != 1 && stop_bits != 2 {
             errors.push(format!(
-                "serial.parity: got \"{p}\", valid values: none | even | odd"
+                "serial.stop_bits: got {stop_bits}, valid values: 1 | 2"
             ));
         }
-    }
 
-    if let Some(ref fc) = cfg.serial.flow_control {
-        let valid = ["none", "software", "hardware", "xon/xoff", "rts/cts"];
-        if !valid.contains(&fc.to_lowercase().as_str()) {
-            errors.push(format!(
-                "serial.flow_control: got \"{fc}\", valid values: none | software | hardware"
-            ));
-        }
-    }
-
-    if let Some(ref nl) = cfg.behavior.outgoing_newline {
-        let valid = ["cr", "lf", "crlf", "cr+lf"];
-        if !valid.contains(&nl.to_lowercase().as_str()) {
-            errors.push(format!(
-                "behavior.outgoing_newline: got \"{nl}\", valid values: cr | lf | crlf"
-            ));
-        }
-    }
+    check_str_field(
+        &mut errors,
+        "serial.parity",
+        &config.serial.parity,
+        VALID_PARITY,
+    );
+    check_str_field(
+        &mut errors,
+        "serial.flow_control",
+        &config.serial.flow_control,
+        VALID_FLOW_CONTROL,
+    );
+    check_str_field(
+        &mut errors,
+        "behavior.outgoing_newline",
+        &config.behavior.outgoing_newline,
+        VALID_NEWLINE,
+    );
 
     errors
 }
 
-fn config_path() -> Option<PathBuf> {
-    #[cfg(unix)]
-    {
-        let base = std::env::var("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                let home = std::env::var("HOME").unwrap_or_default();
-                PathBuf::from(home).join(".config")
-            });
-        return Some(base.join("stuart").join("config.toml"));
+fn check_str_field(errors: &mut Vec<String>, field: &str, value: &Option<String>, valid: &[&str]) {
+    let Some(value) = value else { return };
+    if !valid.iter().any(|&v| v.eq_ignore_ascii_case(value)) {
+        errors.push(format!(
+            "{field}: got \"{value}\", valid values: {}",
+            valid.join(" | ")
+        ));
     }
-    #[cfg(windows)]
-    {
-        return Some(
-            PathBuf::from(std::env::var("APPDATA").ok()?)
-                .join("stuart")
-                .join("config.toml"),
-        );
-    }
-    #[allow(unreachable_code)]
-    None
 }
 
-pub fn parse_data_bits(v: u8) -> DataBits {
-    match v {
+fn config_path() -> Option<PathBuf> {
+    Some(dirs::config_dir()?.join("stuart").join("config.toml"))
+}
+
+pub fn parse_data_bits(value: u8) -> DataBits {
+    match value {
         5 => DataBits::Five,
         6 => DataBits::Six,
         7 => DataBits::Seven,
@@ -158,33 +134,33 @@ pub fn parse_data_bits(v: u8) -> DataBits {
     }
 }
 
-pub fn parse_stop_bits(v: u8) -> StopBits {
-    match v {
+pub fn parse_stop_bits(value: u8) -> StopBits {
+    match value {
         2 => StopBits::Two,
         _ => StopBits::One,
     }
 }
 
-pub fn parse_parity(v: &str) -> Parity {
-    match v.to_lowercase().as_str() {
+pub fn parse_parity(value: &str) -> Parity {
+    match value.to_lowercase().as_str() {
         "even" => Parity::Even,
         "odd" => Parity::Odd,
         _ => Parity::None,
     }
 }
 
-pub fn parse_flow_control(v: &str) -> FlowControl {
-    match v.to_lowercase().as_str() {
-        "software" | "xon/xoff" => FlowControl::Software,
-        "hardware" | "rts/cts" => FlowControl::Hardware,
+pub fn parse_flow_control(value: &str) -> FlowControl {
+    match value.to_lowercase().as_str() {
+        "software" => FlowControl::Software,
+        "hardware" => FlowControl::Hardware,
         _ => FlowControl::None,
     }
 }
 
-pub fn parse_newline(v: &str) -> NewlineEncoding {
-    match v.to_lowercase().as_str() {
+pub fn parse_newline(value: &str) -> NewlineEncoding {
+    match value.to_lowercase().as_str() {
         "lf" => NewlineEncoding::LF,
-        "crlf" | "cr+lf" => NewlineEncoding::CRLF,
+        "crlf" => NewlineEncoding::CRLF,
         _ => NewlineEncoding::CR,
     }
 }

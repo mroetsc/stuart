@@ -1,0 +1,26 @@
+# stuart configuration
+# All values are optional. Unset fields fall back to the app default.
+# CLI flags always override these.
+
+[serial]
+baud = 115200
+
+# 5 | 6 | 7 | 8
+data_bits = 8
+
+# 1 | 2
+stop_bits = 1
+
+# none | even | odd
+parity = "none"
+
+# none | software | hardware
+flow_control = "none"
+
+[behavior]
+local_echo = false
+
+# cr | lf | crlf
+outgoing_newline = "cr"
+
+keep_open = true
