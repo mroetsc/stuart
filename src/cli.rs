@@ -231,8 +231,8 @@ pub fn parse() -> Option<Args> {
 
     if cli.create_config {
         match cfg::write_default(cli.force) {
-            Ok(path) => eprintln!("config written to {}", path.display()),
-            Err(e) => eprintln!("error: {e}"),
+            Ok(path) => eprintln!("Config written to {}", path.display()),
+            Err(e) => eprintln!("Error: {e}"),
         }
         return None;
     }
@@ -241,7 +241,7 @@ pub fn parse() -> Option<Args> {
         Ok(file) => file,
         Err(error) => {
             eprintln!(
-                "error: failed to load config file ({}): {error}",
+                "Error: failed to load config file ({}): {error}",
                 cfg::config_path_display()
             );
             return None;
@@ -251,7 +251,7 @@ pub fn parse() -> Option<Args> {
     let errors = cfg::validate(&file);
     if !errors.is_empty() {
         eprintln!(
-            "error: invalid values in config file ({})",
+            "Error: invalid values in config file ({})",
             cfg::config_path_display()
         );
         for error in &errors {
