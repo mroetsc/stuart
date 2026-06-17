@@ -8,6 +8,7 @@ pre_bump_hooks = [
 post_bump_hooks = [
   "git push",
   "git push origin tag {{version}}",
+  "cargo publish",
 ]
 
 [changelog]
