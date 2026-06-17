@@ -2,7 +2,7 @@ use serialport::SerialPortInfo;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 
-use crate::serial::{self, Command, NewlineEncoding, PortConfig, SerialEvent};
+use crate::serial::{self, Command, InputMode, NewlineEncoding, PortConfig, SerialEvent};
 
 #[derive(Debug, PartialEq)]
 pub enum Screen {
@@ -43,6 +43,8 @@ pub struct App {
     pub settings_baud_input: Option<String>,
     pub keyboard_enhanced: bool,
     pub local_echo: bool,
+    pub input_mode: InputMode,
+    pub line_buffer: String,
     pub outgoing_newline: NewlineEncoding,
     clipboard: Option<arboard::Clipboard>,
 }
@@ -73,6 +75,8 @@ impl App {
             settings_baud_input: None,
             keyboard_enhanced,
             local_echo: false,
+            input_mode: InputMode::Direct,
+            line_buffer: String::new(),
             outgoing_newline: NewlineEncoding::CR,
             clipboard: arboard::Clipboard::new().ok(),
         }
@@ -117,6 +121,8 @@ impl App {
             settings_baud_input: None,
             keyboard_enhanced,
             local_echo: false,
+            input_mode: InputMode::Direct,
+            line_buffer: String::new(),
             outgoing_newline: NewlineEncoding::CR,
             clipboard: arboard::Clipboard::new().ok(),
         }
@@ -210,6 +216,29 @@ impl App {
         if let Some((tx, _)) = &self.connection {
             let _ = tx.send(Command::Write(bytes));
         }
+    }
+
+    pub fn send_line(&mut self) {
+        let text = std::mem::take(&mut self.line_buffer);
+        self.scroll_to_bottom();
+
+        if self.local_echo {
+            for byte in text.bytes() {
+                self.echo_local(&[byte]);
+            }
+            self.echo_local(&[0x0d]);
+        }
+
+        let mut bytes = text.into_bytes();
+        match self.outgoing_newline {
+            NewlineEncoding::CR => bytes.push(0x0d),
+            NewlineEncoding::LF => bytes.push(0x0a),
+            NewlineEncoding::CRLF => {
+                bytes.push(0x0d);
+                bytes.push(0x0a);
+            }
+        }
+        self.send_bytes(bytes);
     }
 
     pub fn echo_local(&mut self, bytes: &[u8]) {

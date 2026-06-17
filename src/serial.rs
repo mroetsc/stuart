@@ -15,6 +15,13 @@ pub enum NewlineEncoding {
     CRLF,
 }
 
+#[derive(Clone, Copy, PartialEq, Default, clap::ValueEnum)]
+pub enum InputMode {
+    #[default]
+    Direct,
+    Line,
+}
+
 pub enum Command {
     Write(Vec<u8>),
     Disconnect,

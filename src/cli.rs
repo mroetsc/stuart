@@ -2,7 +2,9 @@ use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::{generate, Shell};
 
 use crate::config as cfg;
-use crate::serial::{DataBits, FlowControl, NewlineEncoding, Parity, PortConfig, StopBits};
+use crate::serial::{
+    DataBits, FlowControl, InputMode, NewlineEncoding, Parity, PortConfig, StopBits,
+};
 
 #[derive(Clone, ValueEnum)]
 enum DataBitsArg {
@@ -159,18 +161,27 @@ struct Cli {
     )]
     local_echo: bool,
 
+    /// Buffer input and only send a full line when Enter is pressed
+    #[arg(
+        long = "input-mode",
+        value_name = "MODE",
+        help_heading = "Behavior",
+        display_order = 7
+    )]
+    input_mode: Option<InputMode>,
+
     /// Encoding to send to the device when pressing Enter
     #[arg(
         long = "outgoing-newline",
         value_name = "NEWLINE_ENCODING",
         help_heading = "Behavior",
-        display_order = 7
+        display_order = 8
     )]
     outgoing_newline: Option<NewlineEncoding>,
 
     /// Don't lock the port
     #[cfg(unix)]
-    #[arg(long = "no-lock", help_heading = "Behavior", display_order = 8)]
+    #[arg(long = "no-lock", help_heading = "Behavior", display_order = 9)]
     no_lock: bool,
 
     /// Keep terminal open and reconnect if the device disconnects [default]
@@ -179,7 +190,7 @@ struct Cli {
         long = "keep-open",
         overrides_with = "no_keep_open",
         help_heading = "Behavior",
-        display_order = 9
+        display_order = 10
     )]
     keep_open: bool,
 
@@ -188,12 +199,12 @@ struct Cli {
         long = "no-keep-open",
         overrides_with = "keep_open",
         help_heading = "Behavior",
-        display_order = 10
+        display_order = 11
     )]
     no_keep_open: bool,
 
     /// Write a default config file
-    #[arg(long = "create-config", help_heading = "Extra", display_order = 11)]
+    #[arg(long = "create-config", help_heading = "Extra", display_order = 12)]
     create_config: bool,
 
     /// Overwrite existing config file (only valid with --create-config)
@@ -201,15 +212,15 @@ struct Cli {
     force: bool,
 
     /// Generate shell completions
-    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 12)]
+    #[arg(long, value_name = "SHELL", help_heading = "Extra", display_order = 13)]
     completions: Option<Shell>,
 
     /// Print help
-    #[arg(short, long, action = clap::ArgAction::Help, help_heading = "Options", display_order = 13)]
+    #[arg(short, long, action = clap::ArgAction::Help, help_heading = "Options", display_order = 14)]
     help: Option<bool>,
 
     /// Print version
-    #[arg(short = 'V', long, action = clap::ArgAction::Version, help_heading = "Options", display_order = 14)]
+    #[arg(short = 'V', long, action = clap::ArgAction::Version, help_heading = "Options", display_order = 15)]
     version: Option<bool>,
 }
 
@@ -218,6 +229,7 @@ pub struct Args {
     pub config: PortConfig,
     pub hold: bool,
     pub local_echo: bool,
+    pub input_mode: InputMode,
     pub outgoing_newline: NewlineEncoding,
 }
 
@@ -303,6 +315,12 @@ pub fn parse() -> Option<Args> {
         },
         hold,
         local_echo,
+        input_mode: resolve(
+            cli.input_mode,
+            file.behavior.input_mode.as_deref(),
+            cfg::parse_input_mode,
+            InputMode::Direct,
+        ),
         outgoing_newline: resolve(
             cli.outgoing_newline,
             file.behavior.outgoing_newline.as_deref(),
