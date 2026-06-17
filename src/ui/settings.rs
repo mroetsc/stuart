@@ -8,7 +8,7 @@ use ratatui::{
 };
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
-use crate::serial::{NewlineEncoding, BAUD_RATES};
+use crate::serial::{InputMode, NewlineEncoding, BAUD_RATES};
 use crate::state::{App, TerminalMode};
 
 use super::common::{help_spans, wrap_spans_to_lines};
@@ -23,6 +23,7 @@ enum Setting {
     Parity,
     FlowControl,
     LocalEcho,
+    InputMode,
     OutgoingNewline,
 }
 
@@ -34,6 +35,7 @@ impl Setting {
         Self::Parity,
         Self::FlowControl,
         Self::LocalEcho,
+        Self::InputMode,
         Self::OutgoingNewline,
     ];
 
@@ -45,6 +47,7 @@ impl Setting {
             Self::Parity => "Parity",
             Self::FlowControl => "Flow Control",
             Self::LocalEcho => "Local Echo",
+            Self::InputMode => "Input Mode",
             Self::OutgoingNewline => "Outgoing Newline",
         }
     }
@@ -77,6 +80,11 @@ impl Setting {
             }
             .to_string(),
             Self::LocalEcho => if app.local_echo { "On" } else { "Off" }.to_string(),
+            Self::InputMode => match app.input_mode {
+                InputMode::Direct => "Direct",
+                InputMode::Line => "Line",
+            }
+            .to_string(),
             Self::OutgoingNewline => match app.outgoing_newline {
                 NewlineEncoding::CR => "CR",
                 NewlineEncoding::LF => "LF",
@@ -148,6 +156,18 @@ impl Setting {
             }
             Self::LocalEcho => {
                 app.local_echo = !app.local_echo;
+            }
+            Self::InputMode => {
+                let opts = [InputMode::Direct, InputMode::Line];
+                let current = opts
+                    .iter()
+                    .position(|&m| m == app.input_mode)
+                    .unwrap_or(0) as i32;
+                let next = (current + dir).rem_euclid(opts.len() as i32) as usize;
+                app.input_mode = opts[next];
+                if app.input_mode == InputMode::Direct {
+                    app.line_buffer.clear();
+                }
             }
             Self::OutgoingNewline => {
                 let opts = [
