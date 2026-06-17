@@ -6,6 +6,10 @@ repository = "https://github.com/mroetsc/stuart"
 readme = "README.md"
 version = "0.3.0"
 edition = "2024"
+authors = ["Mattes Rötschke"]
+homepage = "https://github.com/mroetsc/stuart"
+keywords = ["serial-communication", "serialport"]
+include = ["example.config.toml", "/src", "README.md", "LICENSE", "CHANGELOG.md"]
 
 [[bin]]
 name = "stuart"
