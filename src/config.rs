@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::serial::{DataBits, FlowControl, NewlineEncoding, Parity, StopBits};
+use crate::serial::{DataBits, FlowControl, InputMode, NewlineEncoding, Parity, StopBits};
 
 #[derive(serde::Deserialize, Default)]
 #[serde(default)]
@@ -23,6 +23,7 @@ pub struct SerialConfig {
 #[serde(default)]
 pub struct BehaviorConfig {
     pub local_echo: Option<bool>,
+    pub input_mode: Option<String>,
     pub outgoing_newline: Option<String>,
     pub keep_open: Option<bool>,
 }
@@ -30,6 +31,7 @@ pub struct BehaviorConfig {
 const VALID_PARITY: &[&str] = &["none", "even", "odd"];
 const VALID_FLOW_CONTROL: &[&str] = &["none", "software", "hardware"];
 const VALID_NEWLINE: &[&str] = &["cr", "lf", "crlf"];
+const VALID_INPUT_MODE: &[&str] = &["direct", "line"];
 
 pub fn load() -> Result<FileConfig, String> {
     let Some(path) = config_path() else {
@@ -107,6 +109,12 @@ pub fn validate(config: &FileConfig) -> Vec<String> {
         &config.behavior.outgoing_newline,
         VALID_NEWLINE,
     );
+    check_str_field(
+        &mut errors,
+        "behavior.input_mode",
+        &config.behavior.input_mode,
+        VALID_INPUT_MODE,
+    );
 
     errors
 }
@@ -162,5 +170,12 @@ pub fn parse_newline(value: &str) -> NewlineEncoding {
         "lf" => NewlineEncoding::LF,
         "crlf" => NewlineEncoding::CRLF,
         _ => NewlineEncoding::CR,
+    }
+}
+
+pub fn parse_input_mode(value: &str) -> InputMode {
+    match value.to_lowercase().as_str() {
+        "line" => InputMode::Line,
+        _ => InputMode::Direct,
     }
 }

@@ -20,6 +20,9 @@ flow_control = "none"
 [behavior]
 local_echo = false
 
+# direct | line
+input_mode = "direct"
+
 # cr | lf | crlf
 outgoing_newline = "cr"
 
