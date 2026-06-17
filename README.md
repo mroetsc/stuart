@@ -10,6 +10,7 @@ stuart - **S**imple **T**erminal **UART** is a TUI for communicating with serial
 - **Local Echo** - show typed text for devices that don't return it themselves
 - **Scrollback buffer** - up to 10,000 lines, mouse and keyboard scrolling
 - **Insert / Control modes** - vim-inspired controls
+- **Line Mode** - send every character instantly or a whole line at once
 - **Config file** - configure defaults for interacting with devices in a central config file
 - **Port Selection** - Select available ports and view information about them
 - **Clipboard copy** - copy entire scrollback with `c`
@@ -61,6 +62,8 @@ Serial Settings:
 Behavior:
   -e, --local-echo
           Echo typed characters locally (for devices that don't echo)
+      --input-mode <MODE>
+          Send every character instantly or a whole line at once [possible values: direct, line]
       --outgoing-newline <NEWLINE_ENCODING>
           Encoding to send to the device when pressing Enter [possible values: cr, lf, crlf]
       --no-lock
@@ -77,6 +80,7 @@ Extra:
 Options:
   -h, --help     Print help
   -V, --version  Print version
+
 ```
 
 **Examples:**

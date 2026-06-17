@@ -161,7 +161,7 @@ struct Cli {
     )]
     local_echo: bool,
 
-    /// Buffer input and only send a full line when Enter is pressed
+    /// Send every character instantly or a whole line at once
     #[arg(
         long = "input-mode",
         value_name = "MODE",
