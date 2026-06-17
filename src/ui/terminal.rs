@@ -8,6 +8,7 @@ use ratatui::{
 };
 
 use crate::state::{App, TerminalMode};
+use crate::serial::InputMode;
 
 use super::common::{
     draw_error_popup, draw_info_bar, help_bar_height, help_spans, info_bar_spans, sep_span,
@@ -92,9 +93,28 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
             }
         }
         let (crow, ccol) = screen.cursor_position();
+        let (mut col, mut row) = (ccol, crow);
+        if app.input_mode == InputMode::Line {
+            let style = Style::default().fg(Color::Cyan);
+            let mut utf8 = [0u8; 4];
+            for ch in app.line_buffer.chars() {
+                if col >= inner.width {
+                    col = 0;
+                    row = row.saturating_add(1);
+                }
+                if row >= inner.height {
+                    break;
+                }
+                let symbol = ch.encode_utf8(&mut utf8);
+                buf[(inner.x + col, inner.y + row)]
+                    .set_symbol(symbol)
+                    .set_style(style);
+                col += 1;
+            }
+        }
         frame.set_cursor_position((
-            (inner.x + ccol).min(inner.x + inner.width - 1),
-            (inner.y + crow).min(inner.y + inner.height - 1),
+            (inner.x + col).min(inner.x + inner.width - 1),
+            (inner.y + row).min(inner.y + inner.height - 1),
         ));
     }
 
@@ -170,6 +190,18 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
             || (code == KeyCode::Char(' ') && modifiers == KeyModifiers::CONTROL);
     if is_escape {
         app.terminal_mode = TerminalMode::Control;
+        return;
+    }
+
+    if app.input_mode == InputMode::Line && !modifiers.contains(KeyModifiers::CONTROL) {
+        match code {
+            KeyCode::Char(c) => app.line_buffer.push(c),
+            KeyCode::Backspace => {
+                app.line_buffer.pop();
+            }
+            KeyCode::Enter => app.send_line(),
+            _ => {}
+        }
         return;
     }
 
