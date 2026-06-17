@@ -4,7 +4,7 @@ description = "A serial terminal TUI"
 license = "AGPL-3.0-only"
 repository = "https://github.com/mroetsc/stuart"
 readme = "README.md"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 
 [[bin]]

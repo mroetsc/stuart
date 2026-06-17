@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.3.0](https://github.com/mroetsc/stuart/compare/4f4dec07544a885ff1363ef444f5b084f69f0179..0.3.0) - 2026-06-17
+#### Features
+- (**config**) support for setting input mode via config file - ([01447f9](https://github.com/mroetsc/stuart/commit/01447f9da0a3ade5544e2d0f4afd8eef410c50bf)) - [@mroetsc](https://github.com/mroetsc)
+- (**state**) support for input mode differentiation - ([4f4dec0](https://github.com/mroetsc/stuart/commit/4f4dec07544a885ff1363ef444f5b084f69f0179)) - [@mroetsc](https://github.com/mroetsc)
+- (**ui**) added input mode to settings - ([f9c1001](https://github.com/mroetsc/stuart/commit/f9c10018a007db72d427593ce6b54fce5cfc7d34)) - [@mroetsc](https://github.com/mroetsc)
+- (**ui**) render line input mode buffer - ([214cd47](https://github.com/mroetsc/stuart/commit/214cd47374e58805ec6cf26f275d02f8f92de132)) - [@mroetsc](https://github.com/mroetsc)
+#### Miscellaneous Chores
+- (**docs**) updated readme to reflect line mode introduction - ([1e15697](https://github.com/mroetsc/stuart/commit/1e15697041a3614615dcee38fc467deec350de43)) - [@mroetsc](https://github.com/mroetsc)
+
+- - -
+
 ## [0.2.0](https://github.com/mroetsc/stuart/compare/1cc1082531fa33f396e281c51fd12d336d519e3a..0.2.0) - 2026-06-16
 #### Features
 - (**cli**) config value priority and args for creating new default config - ([0f87016](https://github.com/mroetsc/stuart/commit/0f870168121c02fec5ba9bd1c7bf49e192dd1b55)) - [@mroetsc](https://github.com/mroetsc)
