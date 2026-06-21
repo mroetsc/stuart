@@ -7,8 +7,8 @@ use ratatui::{
     Frame,
 };
 
-use crate::state::{App, TerminalMode};
 use crate::serial::InputMode;
+use crate::state::{App, TerminalMode};
 
 use super::common::{
     draw_error_popup, draw_info_bar, help_bar_height, help_spans, info_bar_spans, sep_span,
@@ -41,8 +41,8 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
 
     draw_info_bar(app, frame, info_area);
 
-    let all_lines: Vec<&str> = app
-        .scrollback
+    let lines_source = app.frozen_lines.as_ref().unwrap_or(&app.scrollback);
+    let all_lines: Vec<&str> = lines_source
         .iter()
         .flat_map(|l| l.split_inclusive('\n'))
         .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
@@ -190,6 +190,11 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
             || (code == KeyCode::Char(' ') && modifiers == KeyModifiers::CONTROL);
     if is_escape {
         app.terminal_mode = TerminalMode::Control;
+        return;
+    }
+
+    if code == KeyCode::Esc && app.scroll_offset > 0 {
+        app.scroll_to_bottom();
         return;
     }
 

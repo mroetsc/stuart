@@ -34,6 +34,7 @@ pub struct App {
     pub port_config: PortConfig,
     pub parser: vt100::Parser,
     pub scrollback: Vec<String>,
+    pub frozen_lines: Option<Vec<String>>,
     pub scroll_offset: usize,
     pub viewport_height: usize,
     pub hold: bool,
@@ -66,6 +67,7 @@ impl App {
             port_config: PortConfig::default(),
             parser: vt100::Parser::new(24, 80, 0),
             scrollback: Vec::new(),
+            frozen_lines: None,
             scroll_offset: 0,
             viewport_height: 24,
             hold,
@@ -112,6 +114,7 @@ impl App {
             port_config: config,
             parser: vt100::Parser::new(24, 80, 0),
             scrollback: Vec::new(),
+            frozen_lines: None,
             scroll_offset: 0,
             viewport_height: 24,
             hold,
@@ -190,6 +193,7 @@ impl App {
                     self.errors.clear();
                     self.parser = vt100::Parser::new(24, 80, 0);
                     self.scrollback.clear();
+                    self.frozen_lines = None;
                     self.scroll_offset = 0;
                     self.active_port = port.port_name.clone();
 
@@ -329,8 +333,13 @@ impl App {
     }
 
     pub fn scroll(&mut self, delta: i32) {
-        let line_count: usize = self
-            .scrollback
+        let entering_scroll = self.scroll_offset == 0 && delta > 0;
+        if entering_scroll {
+            self.frozen_lines = Some(self.scrollback.clone());
+        }
+
+        let lines = self.frozen_lines.as_ref().unwrap_or(&self.scrollback);
+        let line_count: usize = lines
             .iter()
             .flat_map(|l| l.split_inclusive('\n'))
             .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
@@ -338,15 +347,21 @@ impl App {
         let max_offset = line_count.saturating_sub(self.viewport_height);
         let new_offset = self.scroll_offset as i32 + delta;
         self.scroll_offset = new_offset.clamp(0, max_offset as i32) as usize;
+
+        if self.scroll_offset == 0 {
+            self.frozen_lines = None;
+        }
     }
 
     pub fn scroll_to_bottom(&mut self) {
         self.scroll_offset = 0;
+        self.frozen_lines = None;
     }
 
     pub fn flush_screen(&mut self) {
         self.parser = vt100::Parser::new(24, 80, 0);
         self.scrollback.clear();
+        self.frozen_lines = None;
         self.scroll_offset = 0;
     }
 

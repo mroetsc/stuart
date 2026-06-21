@@ -1,9 +1,9 @@
 use ratatui::{
-    Frame,
     layout::{Alignment, Rect},
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
+    Frame,
 };
 
 use crate::state::{App, Screen};
@@ -97,8 +97,8 @@ pub fn info_bar_left_spans(app: &App) -> Vec<Span<'static>> {
 pub fn info_bar_right_spans(app: &App) -> Vec<Span<'static>> {
     let mut spans: Vec<Span<'static>> = Vec::new();
 
-    let line_count: usize = app
-        .scrollback
+    let lines_source = app.frozen_lines.as_ref().unwrap_or(&app.scrollback);
+    let line_count: usize = lines_source
         .iter()
         .flat_map(|l| l.split_inclusive('\n'))
         .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
