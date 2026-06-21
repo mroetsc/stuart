@@ -205,6 +205,8 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
                 app.line_buffer.pop();
             }
             KeyCode::Enter => app.send_line(),
+            KeyCode::Up => app.history_prev(),
+            KeyCode::Down => app.history_next(),
             _ => {}
         }
         return;

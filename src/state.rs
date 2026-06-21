@@ -46,6 +46,9 @@ pub struct App {
     pub local_echo: bool,
     pub input_mode: InputMode,
     pub line_buffer: String,
+    pub line_history: Vec<String>,
+    pub line_history_pos: Option<usize>,
+    line_buffer_saved: String,
     pub outgoing_newline: NewlineEncoding,
     clipboard: Option<arboard::Clipboard>,
 }
@@ -79,6 +82,9 @@ impl App {
             local_echo: false,
             input_mode: InputMode::Direct,
             line_buffer: String::new(),
+            line_history: Vec::new(),
+            line_history_pos: None,
+            line_buffer_saved: String::new(),
             outgoing_newline: NewlineEncoding::CR,
             clipboard: arboard::Clipboard::new().ok(),
         }
@@ -126,6 +132,9 @@ impl App {
             local_echo: false,
             input_mode: InputMode::Direct,
             line_buffer: String::new(),
+            line_history: Vec::new(),
+            line_history_pos: None,
+            line_buffer_saved: String::new(),
             outgoing_newline: NewlineEncoding::CR,
             clipboard: arboard::Clipboard::new().ok(),
         }
@@ -224,6 +233,13 @@ impl App {
 
     pub fn send_line(&mut self) {
         let text = std::mem::take(&mut self.line_buffer);
+        self.line_history_pos = None;
+        self.line_buffer_saved.clear();
+
+        if !text.is_empty() && self.line_history.last().map(String::as_str) != Some(&text) {
+            self.line_history.push(text.clone());
+        }
+
         self.scroll_to_bottom();
 
         if self.local_echo {
@@ -243,6 +259,39 @@ impl App {
             }
         }
         self.send_bytes(bytes);
+    }
+
+    pub fn history_prev(&mut self) {
+        if self.line_history.is_empty() {
+            return;
+        }
+        match self.line_history_pos {
+            None => {
+                self.line_buffer_saved = self.line_buffer.clone();
+                self.line_history_pos = Some(0);
+            }
+            Some(pos) if pos + 1 < self.line_history.len() => {
+                self.line_history_pos = Some(pos + 1);
+            }
+            _ => return,
+        }
+        let idx = self.line_history.len() - 1 - self.line_history_pos.unwrap();
+        self.line_buffer = self.line_history[idx].clone();
+    }
+
+    pub fn history_next(&mut self) {
+        match self.line_history_pos {
+            None => {}
+            Some(0) => {
+                self.line_history_pos = None;
+                self.line_buffer = std::mem::take(&mut self.line_buffer_saved);
+            }
+            Some(pos) => {
+                self.line_history_pos = Some(pos - 1);
+                let idx = self.line_history.len() - pos;
+                self.line_buffer = self.line_history[idx].clone();
+            }
+        }
     }
 
     pub fn echo_local(&mut self, bytes: &[u8]) {
