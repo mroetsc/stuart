@@ -25,6 +25,7 @@ enum Setting {
     LocalEcho,
     InputMode,
     OutgoingNewline,
+    IncomingNewline,
 }
 
 impl Setting {
@@ -37,6 +38,7 @@ impl Setting {
         Self::LocalEcho,
         Self::InputMode,
         Self::OutgoingNewline,
+        Self::IncomingNewline,
     ];
 
     fn label(self) -> &'static str {
@@ -49,6 +51,7 @@ impl Setting {
             Self::LocalEcho => "Local Echo",
             Self::InputMode => "Input Mode",
             Self::OutgoingNewline => "Outgoing Newline",
+            Self::IncomingNewline => "Incoming Newline",
         }
     }
 
@@ -86,6 +89,12 @@ impl Setting {
             }
             .to_string(),
             Self::OutgoingNewline => match app.outgoing_newline {
+                NewlineEncoding::CR => "CR",
+                NewlineEncoding::LF => "LF",
+                NewlineEncoding::CRLF => "CR+LF",
+            }
+            .to_string(),
+            Self::IncomingNewline => match app.incoming_newline {
                 NewlineEncoding::CR => "CR",
                 NewlineEncoding::LF => "LF",
                 NewlineEncoding::CRLF => "CR+LF",
@@ -159,10 +168,7 @@ impl Setting {
             }
             Self::InputMode => {
                 let opts = [InputMode::Direct, InputMode::Line];
-                let current = opts
-                    .iter()
-                    .position(|&m| m == app.input_mode)
-                    .unwrap_or(0) as i32;
+                let current = opts.iter().position(|&m| m == app.input_mode).unwrap_or(0) as i32;
                 let next = (current + dir).rem_euclid(opts.len() as i32) as usize;
                 app.input_mode = opts[next];
                 if app.input_mode == InputMode::Direct {
@@ -181,6 +187,19 @@ impl Setting {
                     .unwrap_or(2) as i32;
                 let next = (current + dir).rem_euclid(opts.len() as i32) as usize;
                 app.outgoing_newline = opts[next];
+            }
+            Self::IncomingNewline => {
+                let opts = [
+                    NewlineEncoding::CR,
+                    NewlineEncoding::LF,
+                    NewlineEncoding::CRLF,
+                ];
+                let current = opts
+                    .iter()
+                    .position(|&n| n == app.incoming_newline)
+                    .unwrap_or(2) as i32;
+                let next = (current + dir).rem_euclid(opts.len() as i32) as usize;
+                app.incoming_newline = opts[next];
             }
         }
     }
