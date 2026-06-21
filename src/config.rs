@@ -25,6 +25,7 @@ pub struct BehaviorConfig {
     pub local_echo: Option<bool>,
     pub input_mode: Option<String>,
     pub outgoing_newline: Option<String>,
+    pub incoming_newline: Option<String>,
     pub keep_open: Option<bool>,
 }
 
@@ -107,6 +108,12 @@ pub fn validate(config: &FileConfig) -> Vec<String> {
         &mut errors,
         "behavior.outgoing_newline",
         &config.behavior.outgoing_newline,
+        VALID_NEWLINE,
+    );
+    check_str_field(
+        &mut errors,
+        "behavior.incoming_newline",
+        &config.behavior.incoming_newline,
         VALID_NEWLINE,
     );
     check_str_field(

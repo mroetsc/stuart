@@ -25,5 +25,6 @@ input_mode = "direct"
 
 # cr | lf | crlf
 outgoing_newline = "cr"
+incoming_newline = "crlf"
 
 keep_open = true
