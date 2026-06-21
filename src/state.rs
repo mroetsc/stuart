@@ -50,6 +50,7 @@ pub struct App {
     pub line_history_pos: Option<usize>,
     line_buffer_saved: String,
     pub outgoing_newline: NewlineEncoding,
+    pub incoming_newline: NewlineEncoding,
     clipboard: Option<arboard::Clipboard>,
 }
 
@@ -86,6 +87,7 @@ impl App {
             line_history_pos: None,
             line_buffer_saved: String::new(),
             outgoing_newline: NewlineEncoding::CR,
+            incoming_newline: NewlineEncoding::CRLF,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -136,6 +138,7 @@ impl App {
             line_history_pos: None,
             line_buffer_saved: String::new(),
             outgoing_newline: NewlineEncoding::CR,
+            incoming_newline: NewlineEncoding::CRLF,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -440,11 +443,20 @@ impl App {
             loop {
                 match rx.try_recv() {
                     Ok(SerialEvent::Data(bytes)) => {
-                        self.parser.process(&bytes);
+                        self.parser.process(&normalize_newlines_for_parser(&bytes, self.incoming_newline));
                         {
                             let stripped = strip_ansi_escapes::strip(&bytes);
                             let text = String::from_utf8_lossy(&stripped);
-                            for chunk in text.split_inclusive('\n') {
+                            let normalized: std::borrow::Cow<str> = match self.incoming_newline {
+                                NewlineEncoding::CR => {
+                                    std::borrow::Cow::Owned(text.replace('\r', "\n"))
+                                }
+                                NewlineEncoding::LF => text,
+                                NewlineEncoding::CRLF => {
+                                    std::borrow::Cow::Owned(text.replace("\r\n", "\n"))
+                                }
+                            };
+                            for chunk in normalized.split_inclusive('\n') {
                                 if let Some(last) = self.scrollback.last_mut()
                                     && !last.ends_with('\n')
                                 {
@@ -531,5 +543,35 @@ fn friendly_serial_error(raw: &str) -> String {
         "Connection timed out".to_string()
     } else {
         raw.to_string()
+    }
+}
+
+fn normalize_newlines_for_parser(bytes: &[u8], newline: NewlineEncoding) -> Vec<u8> {
+    match newline {
+        NewlineEncoding::CRLF => bytes.to_vec(),
+        NewlineEncoding::CR => {
+            let mut out = Vec::with_capacity(bytes.len() * 2);
+            for &b in bytes {
+                if b == b'\r' {
+                    out.push(b'\r');
+                    out.push(b'\n');
+                } else {
+                    out.push(b);
+                }
+            }
+            out
+        }
+        NewlineEncoding::LF => {
+            let mut out = Vec::with_capacity(bytes.len() * 2);
+            for &b in bytes {
+                if b == b'\n' {
+                    out.push(b'\r');
+                    out.push(b'\n');
+                } else {
+                    out.push(b);
+                }
+            }
+            out
+        }
     }
 }
