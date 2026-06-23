@@ -13,6 +13,7 @@ stuart - **S**imple **T**erminal **UART** is a TUI for communicating with serial
 - **Line Mode** - send every character instantly or a whole line at once
 - **Config file** - configure defaults for interacting with devices in a central config file
 - **Port Selection** - Select available ports and view information about them
+- **Pause connection** - Connection can be paused, freeing the port for flashing firmware or other operations
 - **Clipboard copy** - copy entire scrollback with `c`
 - **Flush scrollback** - clear the screen with `f`
 - **Settings dialogue** - baud rate, data bits, stop bits, parity, flow control; changes apply immediately
@@ -66,6 +67,8 @@ Behavior:
           Send every character instantly or a whole line at once [possible values: direct, line]
       --outgoing-newline <NEWLINE_ENCODING>
           Encoding to send to the device when pressing Enter [possible values: cr, lf, crlf]
+      --incoming-newline <NEWLINE_ENCODING>
+          Newline encoding expected from the device [possible values: cr, lf, crlf]
       --no-lock
           Don't lock the port
   -k, --keep-open
@@ -80,7 +83,6 @@ Extra:
 Options:
   -h, --help     Print help
   -V, --version  Print version
-
 ```
 
 **Examples:**
@@ -120,12 +122,13 @@ Enter control mode with `Ctrl+Esc` or `Ctrl+Space`.
 |-----|--------|
 | `a` / `i` | Enter insert mode |
 | `↑` / `↓` / `j` / `k` | Scroll |
-| `Esc` | Scroll to bottom |
+| `esc` | Scroll to bottom |
 | `f` | Flush screen |
 | `c` | Copy scrollback to clipboard |
 | `+` / `-` | Cycle baud rate |
+| `p` | Pause port |
 | `s` | Settings |
-| `Del` | Disconnect → port select |
+| `del` | Disconnect → port select |
 | `q` | Quit |
 
 ### Terminal - Insert Mode
