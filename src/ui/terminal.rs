@@ -171,13 +171,13 @@ fn help_spans_for_mode(mode: &TerminalMode, keyboard_enhanced: bool) -> Vec<Span
             spans.extend(help_spans(&[
                 ("a", "insert"),
                 ("↑↓", "scroll"),
-                ("Esc", "bottom"),
+                ("esc", "bottom"),
                 ("f", "flush"),
                 ("c", "copy"),
                 ("+/-", "baud"),
                 ("p", "pause"),
                 ("s", "settings"),
-                ("Del", "port select"),
+                ("del", "port select"),
                 ("q", "quit"),
             ]));
             spans
