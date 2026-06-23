@@ -2,6 +2,24 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.4.0](https://github.com/mroetsc/stuart/compare/ef90242299621615170d4fb0beeab8db3d17ce71..0.4.0) - 2026-06-23
+#### Features
+- (**cli**) allow to set incoming newline via args (#4) - ([78b12dc](https://github.com/mroetsc/stuart/commit/78b12dc9f0db2fa939114178144b0c2c4f3d86ba)) - [@mroetsc](https://github.com/mroetsc)
+- (**config**) set incoming newline via config file (#4) - ([7259e66](https://github.com/mroetsc/stuart/commit/7259e66e3a227755fb51e57d848c6c4c724d4e4b)) - [@mroetsc](https://github.com/mroetsc)
+- (**state**) support for pausing the opened connection - ([0066ca9](https://github.com/mroetsc/stuart/commit/0066ca9adfba9b4c9e3428ffd86653e1f714c901)) - [@mroetsc](https://github.com/mroetsc)
+- (**state**) normalize incoming newlines and new field in app struct for this (#4) - ([9e5d73f](https://github.com/mroetsc/stuart/commit/9e5d73fde9d4f6bfff2759b3dd761664a946c448)) - [@mroetsc](https://github.com/mroetsc)
+- (**state**) allow to cycle sent lines in line input mode (resolves #3) - ([2cbb7c8](https://github.com/mroetsc/stuart/commit/2cbb7c8df1376e1dcfa8e66df8a25e1fb083710a)) - [@mroetsc](https://github.com/mroetsc)
+- (**ui**) set incoming newline in settings popup (#4) - ([931fe71](https://github.com/mroetsc/stuart/commit/931fe71de00d8d863533e4c1a34fa88fb97dd0f3)) - [@mroetsc](https://github.com/mroetsc)
+#### Bug Fixes
+- (**ui**) scrollback now properly freezes when scrolled up (#1) - ([9e3aeee](https://github.com/mroetsc/stuart/commit/9e3aeee9bf56c6756a5f54f418297dbab1829384)) - [@mroetsc](https://github.com/mroetsc)
+#### Build system
+- included cargo publish in cocogitto post bump - ([09c47fc](https://github.com/mroetsc/stuart/commit/09c47fcc867df8dab7b8fe902271776351c2caac)) - [@mroetsc](https://github.com/mroetsc)
+#### Miscellaneous Chores
+- (**ui**) minor casings chase - ([d25b653](https://github.com/mroetsc/stuart/commit/d25b6539c6be4fb77f14476ffaa956a8a7b7a2a3)) - [@mroetsc](https://github.com/mroetsc)
+- added some package metadata to cargo.toml - ([ef90242](https://github.com/mroetsc/stuart/commit/ef90242299621615170d4fb0beeab8db3d17ce71)) - [@mroetsc](https://github.com/mroetsc)
+
+- - -
+
 ## [0.3.0](https://github.com/mroetsc/stuart/compare/4f4dec07544a885ff1363ef444f5b084f69f0179..0.3.0) - 2026-06-17
 #### Features
 - (**config**) support for setting input mode via config file - ([01447f9](https://github.com/mroetsc/stuart/commit/01447f9da0a3ade5544e2d0f4afd8eef410c50bf)) - [@mroetsc](https://github.com/mroetsc)
