@@ -175,6 +175,7 @@ fn help_spans_for_mode(mode: &TerminalMode, keyboard_enhanced: bool) -> Vec<Span
                 ("f", "flush"),
                 ("c", "copy"),
                 ("+/-", "baud"),
+                ("p", "pause"),
                 ("s", "settings"),
                 ("Del", "port select"),
                 ("q", "quit"),
@@ -247,6 +248,7 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
         KeyCode::Char('c') => app.copy_to_clipboard(),
         KeyCode::Char('+') => app.change_baud(1),
         KeyCode::Char('-') => app.change_baud(-1),
+        KeyCode::Char('p') => app.toggle_pause(),
         KeyCode::Char('s') => app.show_settings = true,
         KeyCode::Char('q') => {
             app.disconnect();

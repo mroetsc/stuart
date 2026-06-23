@@ -38,6 +38,7 @@ pub struct App {
     pub scroll_offset: usize,
     pub viewport_height: usize,
     pub hold: bool,
+    pub paused: bool,
     pub reconnect_at: Option<Instant>,
     pub show_settings: bool,
     pub settings_cursor: usize,
@@ -75,6 +76,7 @@ impl App {
             scroll_offset: 0,
             viewport_height: 24,
             hold,
+            paused: false,
             reconnect_at: None,
             show_settings: false,
             settings_cursor: 0,
@@ -126,6 +128,7 @@ impl App {
             scroll_offset: 0,
             viewport_height: 24,
             hold,
+            paused: false,
             reconnect_at: None,
             show_settings: false,
             settings_cursor: 0,
@@ -225,10 +228,36 @@ impl App {
             let _ = tx.send(Command::Disconnect);
         }
         self.connection = None;
+        self.paused = false;
         self.screen = Screen::PortSelect;
     }
 
+    pub fn toggle_pause(&mut self) {
+        if self.paused {
+            self.paused = false;
+            match serial::open(&self.active_port, &self.port_config.clone()) {
+                Ok((tx, rx)) => {
+                    self.connection = Some((tx, rx));
+                    self.errors.clear();
+                }
+                Err(e) => {
+                    self.push_error(friendly_serial_error(&e.to_string()));
+                }
+            }
+        } else {
+            if let Some((tx, _)) = &self.connection {
+                let _ = tx.send(Command::Disconnect);
+            }
+            self.connection = None;
+            self.reconnect_at = None;
+            self.paused = true;
+        }
+    }
+
     pub fn send_bytes(&mut self, bytes: Vec<u8>) {
+        if self.paused {
+            return;
+        }
         if let Some((tx, _)) = &self.connection {
             let _ = tx.send(Command::Write(bytes));
         }
@@ -298,6 +327,9 @@ impl App {
     }
 
     pub fn echo_local(&mut self, bytes: &[u8]) {
+        if self.paused {
+            return;
+        }
         use crossterm::style::{Color, ResetColor, SetForegroundColor};
 
         const ECHO_COLOR: Color = Color::Rgb { r: 255, g: 165, b: 0 };
@@ -420,7 +452,7 @@ impl App {
     pub fn poll_serial(&mut self) {
         self.tick_errors();
 
-        if self.connection.is_none() && self.hold && self.screen == Screen::Terminal {
+        if self.connection.is_none() && self.hold && !self.paused && self.screen == Screen::Terminal {
             if let Some(at) = self.reconnect_at {
                 if Instant::now() >= at {
                     self.reconnect_at = None;

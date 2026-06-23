@@ -118,7 +118,15 @@ pub fn info_bar_right_spans(app: &App) -> Vec<Span<'static>> {
         ));
     }
 
-    if app.connection.is_none() && app.hold && app.screen == Screen::Terminal {
+    if app.paused && app.screen == Screen::Terminal {
+        if !spans.is_empty() {
+            spans.push(sep_span());
+        }
+        spans.push(Span::styled(
+            " PAUSED ",
+            Style::default().fg(Color::Black).bg(Color::Cyan).bold(),
+        ));
+    } else if app.connection.is_none() && app.hold && app.screen == Screen::Terminal {
         if !spans.is_empty() {
             spans.push(sep_span());
         }
