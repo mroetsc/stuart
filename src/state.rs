@@ -23,6 +23,78 @@ pub struct ErrorEntry {
     pub shown_at: Instant,
 }
 
+pub struct TerminalView {
+    pub parser: vt100::Parser,
+    pub scrollback: Vec<String>,
+    pub frozen_lines: Option<Vec<String>>,
+    pub scroll_offset: usize,
+    pub viewport_height: usize,
+    pub output_rect: Rect,
+    pub visible_lines: Vec<String>,
+}
+
+impl Default for TerminalView {
+    fn default() -> Self {
+        Self {
+            parser: vt100::Parser::new(24, 80, 0),
+            scrollback: Vec::new(),
+            frozen_lines: None,
+            scroll_offset: 0,
+            viewport_height: 24,
+            output_rect: Rect::default(),
+            visible_lines: Vec::new(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct SelectionState {
+    pub anchor: Option<(usize, usize)>,
+    pub current: Option<(usize, usize)>,
+    pub active: bool,
+}
+
+impl SelectionState {
+    pub fn start(&mut self, row: usize, col: usize) {
+        self.anchor = Some((row, col));
+        self.current = Some((row, col));
+        self.active = true;
+    }
+
+    pub fn update(&mut self, row: usize, col: usize) {
+        if self.active {
+            self.current = Some((row, col));
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.anchor = None;
+        self.current = None;
+        self.active = false;
+    }
+
+    pub fn range(&self) -> Option<((usize, usize), (usize, usize))> {
+        let a = self.anchor?;
+        let b = self.current?;
+        Some(if a <= b { (a, b) } else { (b, a) })
+    }
+}
+
+#[derive(Default)]
+pub struct SettingsUi {
+    pub show: bool,
+    pub cursor: usize,
+    pub baud_input: Option<String>,
+}
+
+#[derive(Default)]
+pub struct LineInput {
+    pub buffer: String,
+    pub history: Vec<String>,
+    pub history_pos: Option<usize>,
+    saved: String,
+}
+
 pub struct App {
     pub screen: Screen,
     pub ports: Vec<SerialPortInfo>,
@@ -33,42 +105,28 @@ pub struct App {
     pub terminal_mode: TerminalMode,
     pub active_port: String,
     pub port_config: PortConfig,
-    pub parser: vt100::Parser,
-    pub scrollback: Vec<String>,
-    pub frozen_lines: Option<Vec<String>>,
-    pub scroll_offset: usize,
-    pub viewport_height: usize,
     pub hold: bool,
     pub paused: bool,
     pub reconnect_at: Option<Instant>,
-    pub show_settings: bool,
-    pub settings_cursor: usize,
-    pub settings_baud_input: Option<String>,
     pub keyboard_enhanced: bool,
     pub local_echo: bool,
     pub input_mode: InputMode,
-    pub line_buffer: String,
-    pub line_history: Vec<String>,
-    pub line_history_pos: Option<usize>,
-    line_buffer_saved: String,
     pub outgoing_newline: NewlineEncoding,
     pub incoming_newline: NewlineEncoding,
-    pub output_rect: Rect,
-    pub visible_lines: Vec<String>,
-    pub selection_anchor: Option<(usize, usize)>,
-    pub selection_current: Option<(usize, usize)>,
-    pub selecting: bool,
+    pub view: TerminalView,
+    pub selection: SelectionState,
+    pub settings: SettingsUi,
+    pub line: LineInput,
     clipboard: Option<arboard::Clipboard>,
 }
 
 const MAX_SCROLLBACK: usize = 10000;
 
-impl App {
-    pub fn new(hold: bool, keyboard_enhanced: bool) -> Self {
-        let ports = sorted_ports(serialport::available_ports().unwrap_or_default());
+impl Default for App {
+    fn default() -> Self {
         Self {
             screen: Screen::PortSelect,
-            ports,
+            ports: Vec::new(),
             selected: 0,
             exit: false,
             connection: None,
@@ -76,32 +134,30 @@ impl App {
             terminal_mode: TerminalMode::Insert,
             active_port: String::new(),
             port_config: PortConfig::default(),
-            parser: vt100::Parser::new(24, 80, 0),
-            scrollback: Vec::new(),
-            frozen_lines: None,
-            scroll_offset: 0,
-            viewport_height: 24,
-            hold,
+            hold: true,
             paused: false,
             reconnect_at: None,
-            show_settings: false,
-            settings_cursor: 0,
-            settings_baud_input: None,
-            keyboard_enhanced,
+            keyboard_enhanced: false,
             local_echo: false,
             input_mode: InputMode::Direct,
-            line_buffer: String::new(),
-            line_history: Vec::new(),
-            line_history_pos: None,
-            line_buffer_saved: String::new(),
             outgoing_newline: NewlineEncoding::CR,
             incoming_newline: NewlineEncoding::CRLF,
-            output_rect: Rect::default(),
-            visible_lines: Vec::new(),
-            selection_anchor: None,
-            selection_current: None,
-            selecting: false,
+            view: TerminalView::default(),
+            selection: SelectionState::default(),
+            settings: SettingsUi::default(),
+            line: LineInput::default(),
             clipboard: arboard::Clipboard::new().ok(),
+        }
+    }
+}
+
+impl App {
+    pub fn new(hold: bool, keyboard_enhanced: bool) -> Self {
+        Self {
+            ports: sorted_ports(serialport::available_ports().unwrap_or_default()),
+            hold,
+            keyboard_enhanced,
+            ..Default::default()
         }
     }
 
@@ -126,39 +182,13 @@ impl App {
         Self {
             screen,
             ports: sorted_ports(serialport::available_ports().unwrap_or_default()),
-            selected: 0,
-            exit: false,
             connection,
             errors,
-            terminal_mode: TerminalMode::Insert,
             active_port: port_name.to_string(),
             port_config: config,
-            parser: vt100::Parser::new(24, 80, 0),
-            scrollback: Vec::new(),
-            frozen_lines: None,
-            scroll_offset: 0,
-            viewport_height: 24,
             hold,
-            paused: false,
-            reconnect_at: None,
-            show_settings: false,
-            settings_cursor: 0,
-            settings_baud_input: None,
             keyboard_enhanced,
-            local_echo: false,
-            input_mode: InputMode::Direct,
-            line_buffer: String::new(),
-            line_history: Vec::new(),
-            line_history_pos: None,
-            line_buffer_saved: String::new(),
-            outgoing_newline: NewlineEncoding::CR,
-            incoming_newline: NewlineEncoding::CRLF,
-            output_rect: Rect::default(),
-            visible_lines: Vec::new(),
-            selection_anchor: None,
-            selection_current: None,
-            selecting: false,
-            clipboard: arboard::Clipboard::new().ok(),
+            ..Default::default()
         }
     }
 
@@ -206,7 +236,7 @@ impl App {
     }
 
     pub fn resize_parser(&mut self, rows: u16, cols: u16) {
-        self.parser.screen_mut().set_size(rows, cols);
+        self.view.parser.screen_mut().set_size(rows, cols);
     }
 
     pub fn move_selection(&mut self, delta: i32) {
@@ -222,10 +252,7 @@ impl App {
             match serial::open(&port.port_name, &self.port_config) {
                 Ok((tx, rx)) => {
                     self.errors.clear();
-                    self.parser = vt100::Parser::new(24, 80, 0);
-                    self.scrollback.clear();
-                    self.frozen_lines = None;
-                    self.scroll_offset = 0;
+                    self.view = TerminalView::default();
                     self.active_port = port.port_name.clone();
 
                     self.connection = Some((tx, rx));
@@ -280,12 +307,12 @@ impl App {
     }
 
     pub fn send_line(&mut self) {
-        let text = std::mem::take(&mut self.line_buffer);
-        self.line_history_pos = None;
-        self.line_buffer_saved.clear();
+        let text = std::mem::take(&mut self.line.buffer);
+        self.line.history_pos = None;
+        self.line.saved.clear();
 
-        if !text.is_empty() && self.line_history.last().map(String::as_str) != Some(&text) {
-            self.line_history.push(text.clone());
+        if !text.is_empty() && self.line.history.last().map(String::as_str) != Some(&text) {
+            self.line.history.push(text.clone());
         }
 
         self.scroll_to_bottom();
@@ -310,34 +337,34 @@ impl App {
     }
 
     pub fn history_prev(&mut self) {
-        if self.line_history.is_empty() {
+        if self.line.history.is_empty() {
             return;
         }
-        match self.line_history_pos {
+        match self.line.history_pos {
             None => {
-                self.line_buffer_saved = self.line_buffer.clone();
-                self.line_history_pos = Some(0);
+                self.line.saved = self.line.buffer.clone();
+                self.line.history_pos = Some(0);
             }
-            Some(pos) if pos + 1 < self.line_history.len() => {
-                self.line_history_pos = Some(pos + 1);
+            Some(pos) if pos + 1 < self.line.history.len() => {
+                self.line.history_pos = Some(pos + 1);
             }
             _ => return,
         }
-        let idx = self.line_history.len() - 1 - self.line_history_pos.unwrap();
-        self.line_buffer = self.line_history[idx].clone();
+        let idx = self.line.history.len() - 1 - self.line.history_pos.unwrap();
+        self.line.buffer = self.line.history[idx].clone();
     }
 
     pub fn history_next(&mut self) {
-        match self.line_history_pos {
+        match self.line.history_pos {
             None => {}
             Some(0) => {
-                self.line_history_pos = None;
-                self.line_buffer = std::mem::take(&mut self.line_buffer_saved);
+                self.line.history_pos = None;
+                self.line.buffer = std::mem::take(&mut self.line.saved);
             }
             Some(pos) => {
-                self.line_history_pos = Some(pos - 1);
-                let idx = self.line_history.len() - pos;
-                self.line_buffer = self.line_history[idx].clone();
+                self.line.history_pos = Some(pos - 1);
+                let idx = self.line.history.len() - pos;
+                self.line.buffer = self.line.history[idx].clone();
             }
         }
     }
@@ -357,7 +384,7 @@ impl App {
             [0x0d] => {
                 // enter advances line
                 parser_feed.extend_from_slice(b"\r\n");
-                if let Some(last) = self.scrollback.last_mut() && !last.ends_with('\n') {
+                if let Some(last) = self.view.scrollback.last_mut() && !last.ends_with('\n') {
                     last.push('\n');
                 }
             }
@@ -366,9 +393,9 @@ impl App {
                 let seq = format!("{}{}{}", SetForegroundColor(ECHO_COLOR), *b as char, ResetColor);
                 parser_feed.extend_from_slice(seq.as_bytes());
                 let ch = *b as char;
-                match self.scrollback.last_mut() {
+                match self.view.scrollback.last_mut() {
                     Some(last) if !last.ends_with('\n') => last.push(ch),
-                    _ => self.scrollback.push(ch.to_string()),
+                    _ => self.view.scrollback.push(ch.to_string()),
                 }
             }
             _ => {
@@ -379,7 +406,7 @@ impl App {
         }
 
         if !parser_feed.is_empty() {
-            self.parser.process(&parser_feed);
+            self.view.parser.process(&parser_feed);
         }
     }
 
@@ -411,22 +438,10 @@ impl App {
         }
     }
 
-    pub fn start_selection(&mut self, row: usize, col: usize) {
-        self.selection_anchor = Some((row, col));
-        self.selection_current = Some((row, col));
-        self.selecting = true;
-    }
-
-    pub fn update_selection(&mut self, row: usize, col: usize) {
-        if self.selecting {
-            self.selection_current = Some((row, col));
-        }
-    }
-
     pub fn finish_selection(&mut self) {
-        self.selecting = false;
-        if self.selection_anchor == self.selection_current {
-            self.clear_selection();
+        self.selection.active = false;
+        if self.selection.anchor == self.selection.current {
+            self.selection.clear();
             return;
         }
         let text = self.selected_text();
@@ -435,25 +450,13 @@ impl App {
         }
     }
 
-    pub fn clear_selection(&mut self) {
-        self.selection_anchor = None;
-        self.selection_current = None;
-        self.selecting = false;
-    }
-
-    pub fn selection_range(&self) -> Option<((usize, usize), (usize, usize))> {
-        let a = self.selection_anchor?;
-        let b = self.selection_current?;
-        Some(if a <= b { (a, b) } else { (b, a) })
-    }
-
     fn selected_text(&self) -> String {
-        let Some((start, end)) = self.selection_range() else {
+        let Some((start, end)) = self.selection.range() else {
             return String::new();
         };
         let mut lines = Vec::new();
         for row in start.0..=end.0 {
-            let Some(line) = self.visible_lines.get(row) else {
+            let Some(line) = self.view.visible_lines.get(row) else {
                 continue;
             };
             let chars: Vec<char> = line.chars().collect();
@@ -478,6 +481,7 @@ impl App {
 
     pub fn copy_to_clipboard(&mut self) {
         let lines: Vec<String> = self
+            .view
             .scrollback
             .iter()
             .flat_map(|l| {
@@ -498,37 +502,34 @@ impl App {
     }
 
     pub fn scroll(&mut self, delta: i32) {
-        self.clear_selection();
-        let entering_scroll = self.scroll_offset == 0 && delta > 0;
+        self.selection.clear();
+        let entering_scroll = self.view.scroll_offset == 0 && delta > 0;
         if entering_scroll {
-            self.frozen_lines = Some(self.scrollback.clone());
+            self.view.frozen_lines = Some(self.view.scrollback.clone());
         }
 
-        let lines = self.frozen_lines.as_ref().unwrap_or(&self.scrollback);
+        let lines = self.view.frozen_lines.as_ref().unwrap_or(&self.view.scrollback);
         let line_count: usize = lines
             .iter()
             .flat_map(|l| l.split_inclusive('\n'))
             .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
             .count();
-        let max_offset = line_count.saturating_sub(self.viewport_height);
-        let new_offset = self.scroll_offset as i32 + delta;
-        self.scroll_offset = new_offset.clamp(0, max_offset as i32) as usize;
+        let max_offset = line_count.saturating_sub(self.view.viewport_height);
+        let new_offset = self.view.scroll_offset as i32 + delta;
+        self.view.scroll_offset = new_offset.clamp(0, max_offset as i32) as usize;
 
-        if self.scroll_offset == 0 {
-            self.frozen_lines = None;
+        if self.view.scroll_offset == 0 {
+            self.view.frozen_lines = None;
         }
     }
 
     pub fn scroll_to_bottom(&mut self) {
-        self.scroll_offset = 0;
-        self.frozen_lines = None;
+        self.view.scroll_offset = 0;
+        self.view.frozen_lines = None;
     }
 
     pub fn flush_screen(&mut self) {
-        self.parser = vt100::Parser::new(24, 80, 0);
-        self.scrollback.clear();
-        self.frozen_lines = None;
-        self.scroll_offset = 0;
+        self.view = TerminalView::default();
     }
 
     pub fn poll_serial(&mut self) {
@@ -557,11 +558,10 @@ impl App {
             loop {
                 match rx.try_recv() {
                     Ok(SerialEvent::Data(bytes)) => {
-                        if !self.selecting {
-                            self.selection_anchor = None;
-                            self.selection_current = None;
+                        if !self.selection.active {
+                            self.selection.clear();
                         }
-                        self.parser.process(&normalize_newlines_for_parser(&bytes, self.incoming_newline));
+                        self.view.parser.process(&normalize_newlines_for_parser(&bytes, self.incoming_newline));
                         {
                             let stripped = strip_ansi_escapes::strip(&bytes);
                             let text = String::from_utf8_lossy(&stripped);
@@ -575,17 +575,17 @@ impl App {
                                 }
                             };
                             for chunk in normalized.split_inclusive('\n') {
-                                if let Some(last) = self.scrollback.last_mut()
+                                if let Some(last) = self.view.scrollback.last_mut()
                                     && !last.ends_with('\n')
                                 {
                                     last.push_str(chunk);
                                     continue;
                                 }
-                                self.scrollback.push(chunk.to_string());
+                                self.view.scrollback.push(chunk.to_string());
                             }
-                            if self.scrollback.len() > MAX_SCROLLBACK {
-                                self.scrollback
-                                    .drain(..self.scrollback.len() - MAX_SCROLLBACK);
+                            if self.view.scrollback.len() > MAX_SCROLLBACK {
+                                self.view.scrollback
+                                    .drain(..self.view.scrollback.len() - MAX_SCROLLBACK);
                             }
                         }
                     }

@@ -31,7 +31,7 @@ fn run_inner(app: &mut App, terminal: &mut DefaultTerminal) -> io::Result<()> {
                 Screen::PortSelect => port_select::draw(app, frame),
                 Screen::Terminal => terminal::draw(app, frame),
             }
-            if app.show_settings {
+            if app.settings.show {
                 settings::draw(app, frame);
             }
         })?;
@@ -59,7 +59,7 @@ fn handle_events(app: &mut App) -> io::Result<()> {
             modifiers,
             ..
         }) => {
-            if app.show_settings {
+            if app.settings.show {
                 settings::handle_key(app, code, modifiers);
             } else {
                 match app.screen {
@@ -69,11 +69,11 @@ fn handle_events(app: &mut App) -> io::Result<()> {
             }
         }
         Event::Mouse(mouse) => {
-            if matches!(app.screen, Screen::Terminal) && !app.show_settings {
+            if matches!(app.screen, Screen::Terminal) && !app.settings.show {
                 terminal::handle_mouse(app, mouse);
             }
         }
-        Event::Paste(text) if matches!(app.screen, Screen::Terminal) && !app.show_settings => {
+        Event::Paste(text) if matches!(app.screen, Screen::Terminal) && !app.settings.show => {
             app.send_bytes(text.into_bytes());
         }
         _ => {}

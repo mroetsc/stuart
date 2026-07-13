@@ -172,7 +172,7 @@ impl Setting {
                 let next = (current + dir).rem_euclid(opts.len() as i32) as usize;
                 app.input_mode = opts[next];
                 if app.input_mode == InputMode::Direct {
-                    app.line_buffer.clear();
+                    app.line.buffer.clear();
                 }
             }
             Self::OutgoingNewline => {
@@ -258,10 +258,10 @@ pub fn draw(app: &App, frame: &mut Frame) {
         .iter()
         .map(|&setting| {
             let is_baud_editing =
-                matches!(setting, Setting::BaudRate) && app.settings_baud_input.is_some();
+                matches!(setting, Setting::BaudRate) && app.settings.baud_input.is_some();
 
             let spans: Vec<Span> = if is_baud_editing {
-                let input = app.settings_baud_input.as_deref().unwrap_or("");
+                let input = app.settings.baud_input.as_deref().unwrap_or("");
                 vec![
                     Span::styled(
                         format!(" {:<width$} ", setting.label(), width = NAME_WIDTH),
@@ -290,12 +290,12 @@ pub fn draw(app: &App, frame: &mut Frame) {
         .highlight_style(Style::default().reversed())
         .highlight_symbol("");
 
-    let mut state = ListState::default().with_selected(Some(app.settings_cursor));
+    let mut state = ListState::default().with_selected(Some(app.settings.cursor));
     frame.render_stateful_widget(list, list_area, &mut state);
 
     if inner.height > list_area.height {
-        let current = Setting::ALL[app.settings_cursor];
-        let spans = if app.settings_baud_input.is_some() {
+        let current = Setting::ALL[app.settings.cursor];
+        let spans = if app.settings.baud_input.is_some() {
             help_spans(&[("0-9", "type"), ("Space", "apply"), ("Esc", "cancel")])
         } else if matches!(current, Setting::BaudRate) {
             help_spans(&[
@@ -317,14 +317,15 @@ pub fn draw(app: &App, frame: &mut Frame) {
 }
 
 pub fn handle_key(app: &mut App, code: KeyCode, _modifiers: KeyModifiers) {
-    if app.settings_baud_input.is_some() {
+    if app.settings.baud_input.is_some() {
         match code {
             KeyCode::Esc => {
-                app.settings_baud_input = None;
+                app.settings.baud_input = None;
             }
             KeyCode::Enter => {
                 let baud = app
-                    .settings_baud_input
+                    .settings
+                    .baud_input
                     .as_deref()
                     .unwrap_or("")
                     .parse::<u32>()
@@ -333,11 +334,12 @@ pub fn handle_key(app: &mut App, code: KeyCode, _modifiers: KeyModifiers) {
                     app.port_config.baud = baud;
                     app.apply_port_config();
                 }
-                app.settings_baud_input = None;
+                app.settings.baud_input = None;
             }
             KeyCode::Char(' ') => {
                 let baud = app
-                    .settings_baud_input
+                    .settings
+                    .baud_input
                     .as_deref()
                     .unwrap_or("")
                     .parse::<u32>()
@@ -346,15 +348,15 @@ pub fn handle_key(app: &mut App, code: KeyCode, _modifiers: KeyModifiers) {
                     app.port_config.baud = baud;
                     app.apply_port_config();
                 }
-                app.settings_baud_input = None;
+                app.settings.baud_input = None;
             }
             KeyCode::Backspace => {
-                if let Some(ref mut s) = app.settings_baud_input {
+                if let Some(ref mut s) = app.settings.baud_input {
                     s.pop();
                 }
             }
             KeyCode::Char(c) if c.is_ascii_digit() => {
-                if let Some(ref mut s) = app.settings_baud_input {
+                if let Some(ref mut s) = app.settings.baud_input {
                     s.push(c);
                 }
             }
@@ -363,31 +365,31 @@ pub fn handle_key(app: &mut App, code: KeyCode, _modifiers: KeyModifiers) {
         return;
     }
 
-    let current = Setting::ALL[app.settings_cursor];
+    let current = Setting::ALL[app.settings.cursor];
 
     match code {
         KeyCode::Esc => {
-            app.show_settings = false;
+            app.settings.show = false;
         }
         KeyCode::Enter => {
-            app.show_settings = false;
+            app.settings.show = false;
             app.terminal_mode = TerminalMode::Insert;
         }
         KeyCode::Up | KeyCode::Char('k') => {
-            if app.settings_cursor > 0 {
-                app.settings_cursor -= 1;
+            if app.settings.cursor > 0 {
+                app.settings.cursor -= 1;
             } else {
-                app.settings_cursor = Setting::ALL.len() - 1;
+                app.settings.cursor = Setting::ALL.len() - 1;
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            app.settings_cursor = (app.settings_cursor + 1) % Setting::ALL.len();
+            app.settings.cursor = (app.settings.cursor + 1) % Setting::ALL.len();
         }
         KeyCode::Left | KeyCode::Char('h') => current.cycle(app, -1),
         KeyCode::Right | KeyCode::Char('l') => current.cycle(app, 1),
         KeyCode::Char(' ') => {
             if matches!(current, Setting::BaudRate) {
-                app.settings_baud_input = Some(app.port_config.baud.to_string());
+                app.settings.baud_input = Some(app.port_config.baud.to_string());
             } else {
                 current.cycle(app, 1);
             }

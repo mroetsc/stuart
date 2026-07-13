@@ -97,23 +97,23 @@ pub fn info_bar_left_spans(app: &App) -> Vec<Span<'static>> {
 pub fn info_bar_right_spans(app: &App) -> Vec<Span<'static>> {
     let mut spans: Vec<Span<'static>> = Vec::new();
 
-    let lines_source = app.frozen_lines.as_ref().unwrap_or(&app.scrollback);
+    let lines_source = app.view.frozen_lines.as_ref().unwrap_or(&app.view.scrollback);
     let line_count: usize = lines_source
         .iter()
         .flat_map(|l| l.split_inclusive('\n'))
         .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
         .count();
-    let max_offset = line_count.saturating_sub(app.viewport_height);
-    let at_top = app.scroll_offset >= max_offset && max_offset > 0;
+    let max_offset = line_count.saturating_sub(app.view.viewport_height);
+    let at_top = app.view.scroll_offset >= max_offset && max_offset > 0;
 
     if at_top {
         spans.push(Span::styled(
             " scrollback TOP ",
             Style::default().fg(Color::DarkGray),
         ));
-    } else if app.scroll_offset > 0 {
+    } else if app.view.scroll_offset > 0 {
         spans.push(Span::styled(
-            format!(" scrollback +{} ", app.scroll_offset),
+            format!(" scrollback +{} ", app.view.scroll_offset),
             Style::default().fg(Color::DarkGray),
         ));
     }

@@ -37,7 +37,7 @@ pub fn handle_key(app: &mut App, code: crossterm::event::KeyCode) {
     match code {
         crossterm::event::KeyCode::Char('q') => app.exit = true,
         crossterm::event::KeyCode::Char('r') => app.refresh_ports(),
-        crossterm::event::KeyCode::Char('s') => app.show_settings = true,
+        crossterm::event::KeyCode::Char('s') => app.settings.show = true,
         crossterm::event::KeyCode::Up | crossterm::event::KeyCode::Char('k') => {
             app.move_selection(-1)
         }

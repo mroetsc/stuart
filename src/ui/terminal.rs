@@ -37,12 +37,16 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
     };
 
     app.resize_parser(inner.height, inner.width);
-    app.viewport_height = inner.height as usize;
-    app.output_rect = inner;
+    app.view.viewport_height = inner.height as usize;
+    app.view.output_rect = inner;
 
     draw_info_bar(app, frame, info_area);
 
-    let lines_source = app.frozen_lines.as_ref().unwrap_or(&app.scrollback);
+    let lines_source = app
+        .view
+        .frozen_lines
+        .as_ref()
+        .unwrap_or(&app.view.scrollback);
     let all_lines: Vec<&str> = lines_source
         .iter()
         .flat_map(|l| l.split_inclusive('\n'))
@@ -51,18 +55,18 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
     let total = all_lines.len();
     let height = inner.height as usize;
     let max_offset = total.saturating_sub(height);
-    let scrolling = app.scroll_offset > 0;
+    let scrolling = app.view.scroll_offset > 0;
 
     let block = Block::new().borders(Borders::ALL);
     frame.render_widget(block, output_area);
 
-    let selection = app.selection_range();
+    let selection = app.selection.range();
 
     if scrolling {
-        let end = total.saturating_sub(app.scroll_offset.min(max_offset));
+        let end = total.saturating_sub(app.view.scroll_offset.min(max_offset));
         let start = end.saturating_sub(height);
         let visible: Vec<&str> = all_lines[start..end].to_vec();
-        app.visible_lines = visible.iter().map(|l| l.to_string()).collect();
+        app.view.visible_lines = visible.iter().map(|l| l.to_string()).collect();
 
         let lines: Vec<ratatui::text::Line<'static>> = visible
             .iter()
@@ -71,14 +75,14 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
             .collect();
         frame.render_widget(Paragraph::new(Text::from(lines)), inner);
     } else {
-        let screen = app.parser.screen();
+        let screen = app.view.parser.screen();
         let buf = frame.buffer_mut();
-        app.visible_lines = vec![String::new(); inner.height as usize];
+        app.view.visible_lines = vec![String::new(); inner.height as usize];
         for row in 0..inner.height {
             for col in 0..inner.width {
                 if let Some(cell) = screen.cell(row, col) {
                     let ch = cell.contents();
-                    if let Some(line) = app.visible_lines.get_mut(row as usize) {
+                    if let Some(line) = app.view.visible_lines.get_mut(row as usize) {
                         line.push_str(if ch.is_empty() { " " } else { ch });
                     }
                     let selected = is_selected(selection, row as usize, col as usize);
@@ -115,7 +119,7 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
         if app.input_mode == InputMode::Line {
             let style = Style::default().fg(Color::Cyan);
             let mut utf8 = [0u8; 4];
-            for ch in app.line_buffer.chars() {
+            for ch in app.line.buffer.chars() {
                 if col >= inner.width {
                     col = 0;
                     row = row.saturating_add(1);
@@ -158,20 +162,20 @@ pub fn handle_mouse(app: &mut App, mouse: crossterm::event::MouseEvent) {
         MouseEventKind::ScrollDown => app.scroll(-3),
         MouseEventKind::Down(_) => {
             if let Some((row, col)) = cell_at(app, mouse.column, mouse.row) {
-                app.start_selection(row, col);
+                app.selection.start(row, col);
             }
         }
-        MouseEventKind::Drag(_) | MouseEventKind::Moved if app.selecting => {
+        MouseEventKind::Drag(_) | MouseEventKind::Moved if app.selection.active => {
             let (row, col) = clamp_cell(app, mouse.column, mouse.row);
-            app.update_selection(row, col);
+            app.selection.update(row, col);
         }
-        MouseEventKind::Up(_) if app.selecting => app.finish_selection(),
+        MouseEventKind::Up(_) if app.selection.active => app.finish_selection(),
         _ => {}
     }
 }
 
 fn cell_at(app: &App, col: u16, row: u16) -> Option<(usize, usize)> {
-    let rect = app.output_rect;
+    let rect = app.view.output_rect;
     if col < rect.x || col >= rect.x + rect.width || row < rect.y || row >= rect.y + rect.height {
         return None;
     }
@@ -179,7 +183,7 @@ fn cell_at(app: &App, col: u16, row: u16) -> Option<(usize, usize)> {
 }
 
 fn clamp_cell(app: &App, col: u16, row: u16) -> (usize, usize) {
-    let rect = app.output_rect;
+    let rect = app.view.output_rect;
     let col = col.clamp(rect.x, rect.x + rect.width.saturating_sub(1));
     let row = row.clamp(rect.y, rect.y + rect.height.saturating_sub(1));
     ((row - rect.y) as usize, (col - rect.x) as usize)
@@ -238,9 +242,9 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
     }
 
     if code == KeyCode::Esc {
-        let had_selection = app.selection_anchor.is_some();
-        app.clear_selection();
-        if app.scroll_offset > 0 {
+        let had_selection = app.selection.anchor.is_some();
+        app.selection.clear();
+        if app.view.scroll_offset > 0 {
             app.scroll_to_bottom();
             return;
         }
@@ -251,9 +255,9 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
 
     if app.input_mode == InputMode::Line && !modifiers.contains(KeyModifiers::CONTROL) {
         match code {
-            KeyCode::Char(c) => app.line_buffer.push(c),
+            KeyCode::Char(c) => app.line.buffer.push(c),
             KeyCode::Backspace => {
-                app.line_buffer.pop();
+                app.line.buffer.pop();
             }
             KeyCode::Enter => app.send_line(),
             KeyCode::Up => app.history_prev(),
@@ -293,7 +297,7 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
         KeyCode::Up | KeyCode::Char('k') => app.scroll(3),
         KeyCode::Down | KeyCode::Char('j') => app.scroll(-3),
         KeyCode::Esc => {
-            app.clear_selection();
+            app.selection.clear();
             app.scroll_to_bottom();
         }
         KeyCode::Backspace | KeyCode::Delete => app.disconnect(),
@@ -302,7 +306,7 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
         KeyCode::Char('+') => app.change_baud(1),
         KeyCode::Char('-') => app.change_baud(-1),
         KeyCode::Char('p') => app.toggle_pause(),
-        KeyCode::Char('s') => app.show_settings = true,
+        KeyCode::Char('s') => app.settings.show = true,
         KeyCode::Char('q') => {
             app.disconnect();
             app.exit = true;
