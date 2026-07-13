@@ -1,3 +1,4 @@
+use ratatui::layout::Rect;
 use serialport::SerialPortInfo;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
@@ -52,6 +53,11 @@ pub struct App {
     line_buffer_saved: String,
     pub outgoing_newline: NewlineEncoding,
     pub incoming_newline: NewlineEncoding,
+    pub output_rect: Rect,
+    pub visible_lines: Vec<String>,
+    pub selection_anchor: Option<(usize, usize)>,
+    pub selection_current: Option<(usize, usize)>,
+    pub selecting: bool,
     clipboard: Option<arboard::Clipboard>,
 }
 
@@ -90,6 +96,11 @@ impl App {
             line_buffer_saved: String::new(),
             outgoing_newline: NewlineEncoding::CR,
             incoming_newline: NewlineEncoding::CRLF,
+            output_rect: Rect::default(),
+            visible_lines: Vec::new(),
+            selection_anchor: None,
+            selection_current: None,
+            selecting: false,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -142,6 +153,11 @@ impl App {
             line_buffer_saved: String::new(),
             outgoing_newline: NewlineEncoding::CR,
             incoming_newline: NewlineEncoding::CRLF,
+            output_rect: Rect::default(),
+            visible_lines: Vec::new(),
+            selection_anchor: None,
+            selection_current: None,
+            selecting: false,
             clipboard: arboard::Clipboard::new().ok(),
         }
     }
@@ -395,6 +411,71 @@ impl App {
         }
     }
 
+    pub fn start_selection(&mut self, row: usize, col: usize) {
+        self.selection_anchor = Some((row, col));
+        self.selection_current = Some((row, col));
+        self.selecting = true;
+    }
+
+    pub fn update_selection(&mut self, row: usize, col: usize) {
+        if self.selecting {
+            self.selection_current = Some((row, col));
+        }
+    }
+
+    pub fn finish_selection(&mut self) {
+        self.selecting = false;
+        if self.selection_anchor == self.selection_current {
+            self.clear_selection();
+            return;
+        }
+        let text = self.selected_text();
+        if !text.is_empty() && let Some(clipboard) = &mut self.clipboard {
+            let _ = clipboard.set_text(text);
+        }
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selection_anchor = None;
+        self.selection_current = None;
+        self.selecting = false;
+    }
+
+    pub fn selection_range(&self) -> Option<((usize, usize), (usize, usize))> {
+        let a = self.selection_anchor?;
+        let b = self.selection_current?;
+        Some(if a <= b { (a, b) } else { (b, a) })
+    }
+
+    fn selected_text(&self) -> String {
+        let Some((start, end)) = self.selection_range() else {
+            return String::new();
+        };
+        let mut lines = Vec::new();
+        for row in start.0..=end.0 {
+            let Some(line) = self.visible_lines.get(row) else {
+                continue;
+            };
+            let chars: Vec<char> = line.chars().collect();
+            let from = if row == start.0 { start.1 } else { 0 };
+            let to = if row == end.0 {
+                (end.1 + 1).min(chars.len())
+            } else {
+                chars.len()
+            };
+            lines.push(if from < to {
+                chars[from..to].iter().collect::<String>()
+            } else {
+                String::new()
+            });
+        }
+        lines
+            .iter()
+            .map(|l| l.trim_end())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
     pub fn copy_to_clipboard(&mut self) {
         let lines: Vec<String> = self
             .scrollback
@@ -417,6 +498,7 @@ impl App {
     }
 
     pub fn scroll(&mut self, delta: i32) {
+        self.clear_selection();
         let entering_scroll = self.scroll_offset == 0 && delta > 0;
         if entering_scroll {
             self.frozen_lines = Some(self.scrollback.clone());
@@ -475,6 +557,10 @@ impl App {
             loop {
                 match rx.try_recv() {
                     Ok(SerialEvent::Data(bytes)) => {
+                        if !self.selecting {
+                            self.selection_anchor = None;
+                            self.selection_current = None;
+                        }
                         self.parser.process(&normalize_newlines_for_parser(&bytes, self.incoming_newline));
                         {
                             let stripped = strip_ansi_escapes::strip(&bytes);

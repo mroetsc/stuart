@@ -38,6 +38,7 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
 
     app.resize_parser(inner.height, inner.width);
     app.viewport_height = inner.height as usize;
+    app.output_rect = inner;
 
     draw_info_bar(app, frame, info_area);
 
@@ -55,20 +56,33 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
     let block = Block::new().borders(Borders::ALL);
     frame.render_widget(block, output_area);
 
+    let selection = app.selection_range();
+
     if scrolling {
         let end = total.saturating_sub(app.scroll_offset.min(max_offset));
         let start = end.saturating_sub(height);
         let visible: Vec<&str> = all_lines[start..end].to_vec();
-        let text = visible.join("\n");
-        frame.render_widget(Paragraph::new(text), inner);
+        app.visible_lines = visible.iter().map(|l| l.to_string()).collect();
+
+        let lines: Vec<ratatui::text::Line<'static>> = visible
+            .iter()
+            .enumerate()
+            .map(|(row, line)| styled_line(line, row, selection))
+            .collect();
+        frame.render_widget(Paragraph::new(Text::from(lines)), inner);
     } else {
         let screen = app.parser.screen();
         let buf = frame.buffer_mut();
+        app.visible_lines = vec![String::new(); inner.height as usize];
         for row in 0..inner.height {
             for col in 0..inner.width {
                 if let Some(cell) = screen.cell(row, col) {
                     let ch = cell.contents();
-                    if ch.is_empty() {
+                    if let Some(line) = app.visible_lines.get_mut(row as usize) {
+                        line.push_str(if ch.is_empty() { " " } else { ch });
+                    }
+                    let selected = is_selected(selection, row as usize, col as usize);
+                    if ch.is_empty() && !selected {
                         continue;
                     }
                     let mut style = Style::default();
@@ -86,8 +100,12 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
                     if cell.inverse() {
                         style = style.add_modifier(Modifier::REVERSED);
                     }
+                    if selected {
+                        style = style.add_modifier(Modifier::REVERSED);
+                    }
+                    let symbol = if ch.is_empty() { " " } else { ch };
                     buf[(inner.x + col, inner.y + row)]
-                        .set_symbol(ch)
+                        .set_symbol(symbol)
                         .set_style(style);
                 }
             }
@@ -138,8 +156,33 @@ pub fn handle_mouse(app: &mut App, mouse: crossterm::event::MouseEvent) {
     match mouse.kind {
         MouseEventKind::ScrollUp => app.scroll(3),
         MouseEventKind::ScrollDown => app.scroll(-3),
+        MouseEventKind::Down(_) => {
+            if let Some((row, col)) = cell_at(app, mouse.column, mouse.row) {
+                app.start_selection(row, col);
+            }
+        }
+        MouseEventKind::Drag(_) | MouseEventKind::Moved if app.selecting => {
+            let (row, col) = clamp_cell(app, mouse.column, mouse.row);
+            app.update_selection(row, col);
+        }
+        MouseEventKind::Up(_) if app.selecting => app.finish_selection(),
         _ => {}
     }
+}
+
+fn cell_at(app: &App, col: u16, row: u16) -> Option<(usize, usize)> {
+    let rect = app.output_rect;
+    if col < rect.x || col >= rect.x + rect.width || row < rect.y || row >= rect.y + rect.height {
+        return None;
+    }
+    Some(((row - rect.y) as usize, (col - rect.x) as usize))
+}
+
+fn clamp_cell(app: &App, col: u16, row: u16) -> (usize, usize) {
+    let rect = app.output_rect;
+    let col = col.clamp(rect.x, rect.x + rect.width.saturating_sub(1));
+    let row = row.clamp(rect.y, rect.y + rect.height.saturating_sub(1));
+    ((row - rect.y) as usize, (col - rect.x) as usize)
 }
 
 fn help_spans_for_mode(mode: &TerminalMode, keyboard_enhanced: bool) -> Vec<Span<'static>> {
@@ -194,9 +237,16 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
         return;
     }
 
-    if code == KeyCode::Esc && app.scroll_offset > 0 {
-        app.scroll_to_bottom();
-        return;
+    if code == KeyCode::Esc {
+        let had_selection = app.selection_anchor.is_some();
+        app.clear_selection();
+        if app.scroll_offset > 0 {
+            app.scroll_to_bottom();
+            return;
+        }
+        if had_selection {
+            return;
+        }
     }
 
     if app.input_mode == InputMode::Line && !modifiers.contains(KeyModifiers::CONTROL) {
@@ -242,7 +292,10 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
         }
         KeyCode::Up | KeyCode::Char('k') => app.scroll(3),
         KeyCode::Down | KeyCode::Char('j') => app.scroll(-3),
-        KeyCode::Esc => app.scroll_to_bottom(),
+        KeyCode::Esc => {
+            app.clear_selection();
+            app.scroll_to_bottom();
+        }
         KeyCode::Backspace | KeyCode::Delete => app.disconnect(),
         KeyCode::Char('f') => app.flush_screen(),
         KeyCode::Char('c') => app.copy_to_clipboard(),
@@ -256,6 +309,58 @@ fn handle_control_mode(app: &mut App, code: KeyCode) {
         }
         _ => {}
     }
+}
+
+fn is_selected(
+    selection: Option<((usize, usize), (usize, usize))>,
+    row: usize,
+    col: usize,
+) -> bool {
+    let Some((start, end)) = selection else {
+        return false;
+    };
+    if row < start.0 || row > end.0 {
+        return false;
+    }
+    let from = if row == start.0 { start.1 } else { 0 };
+    let to = if row == end.0 { end.1 } else { usize::MAX };
+    col >= from && col <= to
+}
+
+fn styled_line(
+    line: &str,
+    row: usize,
+    selection: Option<((usize, usize), (usize, usize))>,
+) -> ratatui::text::Line<'static> {
+    let Some((start, end)) = selection else {
+        return ratatui::text::Line::from(line.to_string());
+    };
+    if row < start.0 || row > end.0 {
+        return ratatui::text::Line::from(line.to_string());
+    }
+
+    let chars: Vec<char> = line.chars().collect();
+    let from = (if row == start.0 { start.1 } else { 0 }).min(chars.len());
+    let to = (if row == end.0 { end.1 + 1 } else { chars.len() })
+        .max(from)
+        .min(chars.len());
+
+    let before: String = chars[..from].iter().collect();
+    let selected: String = chars[from..to].iter().collect();
+    let after: String = chars[to..].iter().collect();
+
+    let mut spans = Vec::new();
+    if !before.is_empty() {
+        spans.push(Span::raw(before));
+    }
+    spans.push(Span::styled(
+        selected,
+        Style::default().add_modifier(Modifier::REVERSED),
+    ));
+    if !after.is_empty() {
+        spans.push(Span::raw(after));
+    }
+    ratatui::text::Line::from(spans)
 }
 
 fn vt100_color(color: vt100::Color) -> Color {
