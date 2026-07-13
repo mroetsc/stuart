@@ -1,6 +1,17 @@
 # Changelog
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.5.0](https://github.com/mroetsc/stuart/compare/0.4.0..0.5.0) - 2026-07-13
+#### Features
+- (**terminal**) mouse selection for buffer - ([5aa94f3](https://github.com/mroetsc/stuart/commit/5aa94f373fa73d6900e9c4dfe69e828dabb768be)) - [@mroetsc](https://github.com/mroetsc)
+#### Documentation
+- updated readme with mouse support and feature-complete notice - ([8682b77](https://github.com/mroetsc/stuart/commit/8682b77e7b211a0ffa26edf49c7816faa064ae65)) - [@mroetsc](https://github.com/mroetsc)
+- updated readme for 0.4.0 - ([20b53de](https://github.com/mroetsc/stuart/commit/20b53de0addcf50f4b0240c79c9a98e625bffdb9)) - [@mroetsc](https://github.com/mroetsc)
+#### Refactoring
+- (**state**) split up app struct into sub types - ([e70d8b1](https://github.com/mroetsc/stuart/commit/e70d8b111b88f6cb3dcfe8b6f91e9046d98bb613)) - [@mroetsc](https://github.com/mroetsc)
+#### Miscellaneous Chores
+- (**version**) 0.5.0 - ([00ea273](https://github.com/mroetsc/stuart/commit/00ea27398696d0d5e6a70adf75a8625a3ec0290e)) - [@mroetsc](https://github.com/mroetsc)
+
 - - -
 ## [0.4.0](https://github.com/mroetsc/stuart/compare/ef90242299621615170d4fb0beeab8db3d17ce71..0.4.0) - 2026-06-23
 #### Features
