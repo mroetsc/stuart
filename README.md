@@ -17,6 +17,7 @@ stuart - **S**imple **T**erminal **UART** is a TUI for communicating with serial
 - **Clipboard copy** - copy entire scrollback with `c`
 - **Flush scrollback** - clear the screen with `f`
 - **Settings dialogue** - baud rate, data bits, stop bits, parity, flow control; changes apply immediately
+- **Mouse Support** - support for scrolling and selections
 - **Shell completions** - bash, zsh, fish, elvish, powershell
 
 ### Demo
@@ -44,6 +45,9 @@ cargo install stuart-cli
 ### Prebuilt binaries
 
 Download from the [releases page](https://github.com/mroetsc/stuart/releases) for Linux, Windows (x86_64) and macOS (aarch64).
+
+> [!NOTE]
+> `stuart` is feature-complete in its current state, so there will be less activity on this repository. I am happy to implement new suggestions if they are fitting and will patch any bugs that may come up.
 
 ## Usage
 
