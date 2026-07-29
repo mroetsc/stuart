@@ -1,5 +1,8 @@
 use ratatui::layout::Rect;
 use serialport::SerialPortInfo;
+use std::cell::RefCell;
+use std::io::{self, Write};
+use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 
@@ -23,11 +26,54 @@ pub struct ErrorEntry {
     pub shown_at: Instant,
 }
 
+#[derive(Clone, Default)]
+struct SharedBuffer(Rc<RefCell<Vec<u8>>>);
+
+impl Write for SharedBuffer {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.borrow_mut().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+struct AnsiStripper {
+    writer: strip_ansi_escapes::Writer<SharedBuffer>,
+    output: Rc<RefCell<Vec<u8>>>,
+}
+
+impl Default for AnsiStripper {
+    fn default() -> Self {
+        let sink = SharedBuffer::default();
+        let output = Rc::clone(&sink.0);
+
+        Self {
+            writer: strip_ansi_escapes::Writer::new(sink),
+            output,
+        }
+    }
+}
+
+impl AnsiStripper {
+    fn strip(&mut self, bytes: &[u8]) -> Vec<u8> {
+        self.writer
+            .write_all(bytes)
+            .expect("writing ANSI-stripped output to memory cannot fail");
+        self.writer
+            .flush()
+            .expect("flushing ANSI-stripped output to memory cannot fail");
+
+        std::mem::take(&mut *self.output.borrow_mut())
+    }
+}
+
 pub struct TerminalView {
     pub parser: vt100::Parser,
+    ansi_stripper: AnsiStripper,
     pub scrollback: Vec<String>,
-    pub frozen_lines: Option<Vec<String>>,
-    pub scroll_offset: usize,
     pub viewport_height: usize,
     pub output_rect: Rect,
     pub visible_lines: Vec<String>,
@@ -36,10 +82,9 @@ pub struct TerminalView {
 impl Default for TerminalView {
     fn default() -> Self {
         Self {
-            parser: vt100::Parser::new(24, 80, 0),
+            parser: vt100::Parser::new(24, 80, MAX_SCROLLBACK),
+            ansi_stripper: AnsiStripper::default(),
             scrollback: Vec::new(),
-            frozen_lines: None,
-            scroll_offset: 0,
             viewport_height: 24,
             output_rect: Rect::default(),
             visible_lines: Vec::new(),
@@ -503,29 +548,20 @@ impl App {
 
     pub fn scroll(&mut self, delta: i32) {
         self.selection.clear();
-        let entering_scroll = self.view.scroll_offset == 0 && delta > 0;
-        if entering_scroll {
-            self.view.frozen_lines = Some(self.view.scrollback.clone());
-        }
 
-        let lines = self.view.frozen_lines.as_ref().unwrap_or(&self.view.scrollback);
-        let line_count: usize = lines
-            .iter()
-            .flat_map(|l| l.split_inclusive('\n'))
-            .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
-            .count();
-        let max_offset = line_count.saturating_sub(self.view.viewport_height);
-        let new_offset = self.view.scroll_offset as i32 + delta;
-        self.view.scroll_offset = new_offset.clamp(0, max_offset as i32) as usize;
+        let current = self.view.parser.screen().scrollback();
+        let distance = delta.unsigned_abs() as usize;
+        let requested = if delta > 0 {
+            current.saturating_add(distance)
+        } else {
+            current.saturating_sub(distance)
+        };
 
-        if self.view.scroll_offset == 0 {
-            self.view.frozen_lines = None;
-        }
+        self.view.parser.screen_mut().set_scrollback(requested);
     }
 
     pub fn scroll_to_bottom(&mut self) {
-        self.view.scroll_offset = 0;
-        self.view.frozen_lines = None;
+        self.view.parser.screen_mut().set_scrollback(0);
     }
 
     pub fn flush_screen(&mut self) {
@@ -563,7 +599,7 @@ impl App {
                         }
                         self.view.parser.process(&normalize_newlines_for_parser(&bytes, self.incoming_newline));
                         {
-                            let stripped = strip_ansi_escapes::strip(&bytes);
+                            let stripped = self.view.ansi_stripper.strip(&bytes);
                             let text = String::from_utf8_lossy(&stripped);
                             let normalized: std::borrow::Cow<str> = match self.incoming_newline {
                                 NewlineEncoding::CR => {
@@ -691,5 +727,44 @@ fn normalize_newlines_for_parser(bytes: &[u8], newline: NewlineEncoding) -> Vec<
             }
             out
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AnsiStripper;
+
+    #[test]
+    fn strips_ansi_sequences_split_across_chunks() {
+        let chunks: &[&[u8]] = &[b"\x1b", b"[1;34mblue\x1b", b"[0", b"m plain\n"];
+        let mut stripper = AnsiStripper::default();
+        let mut output = Vec::new();
+
+        for chunk in chunks {
+            output.extend(stripper.strip(chunk));
+        }
+
+        assert_eq!(output, b"blue plain\n");
+    }
+
+    #[test]
+    fn vt100_scrollback_preserves_color() {
+        let mut parser = vt100::Parser::new(2, 20, 10);
+        let chunks: &[&[u8]] = &[b"\x1b", b"[1;34mblue\x1b", b"[0m\r\nsecond\r\nthird"];
+
+        for chunk in chunks {
+            parser.process(chunk);
+        }
+
+        parser.screen_mut().set_scrollback(1);
+
+        let cell = parser
+            .screen()
+            .cell(0, 0)
+            .expect("first scrollback cell should exist");
+
+        assert_eq!(cell.contents(), "b");
+        assert_eq!(cell.fgcolor(), vt100::Color::Idx(4));
+        assert!(cell.bold());
     }
 }

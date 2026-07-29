@@ -42,84 +42,63 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
 
     draw_info_bar(app, frame, info_area);
 
-    let lines_source = app
-        .view
-        .frozen_lines
-        .as_ref()
-        .unwrap_or(&app.view.scrollback);
-    let all_lines: Vec<&str> = lines_source
-        .iter()
-        .flat_map(|l| l.split_inclusive('\n'))
-        .flat_map(|l| l.strip_suffix('\n').or(Some(l)))
-        .collect();
-    let total = all_lines.len();
-    let height = inner.height as usize;
-    let max_offset = total.saturating_sub(height);
-    let scrolling = app.view.scroll_offset > 0;
-
+    let scrolling = app.view.parser.screen().scrollback() > 0;
     let block = Block::new().borders(Borders::ALL);
     frame.render_widget(block, output_area);
 
     let selection = app.selection.range();
+    let screen = app.view.parser.screen();
+    let buf = frame.buffer_mut();
 
-    if scrolling {
-        let end = total.saturating_sub(app.view.scroll_offset.min(max_offset));
-        let start = end.saturating_sub(height);
-        let visible: Vec<&str> = all_lines[start..end].to_vec();
-        app.view.visible_lines = visible.iter().map(|l| l.to_string()).collect();
-
-        let lines: Vec<ratatui::text::Line<'static>> = visible
-            .iter()
-            .enumerate()
-            .map(|(row, line)| styled_line(line, row, selection))
-            .collect();
-        frame.render_widget(Paragraph::new(Text::from(lines)), inner);
-    } else {
-        let screen = app.view.parser.screen();
-        let buf = frame.buffer_mut();
-        app.view.visible_lines = vec![String::new(); inner.height as usize];
-        for row in 0..inner.height {
-            for col in 0..inner.width {
-                if let Some(cell) = screen.cell(row, col) {
-                    let ch = cell.contents();
-                    if let Some(line) = app.view.visible_lines.get_mut(row as usize) {
-                        line.push_str(if ch.is_empty() { " " } else { ch });
-                    }
-                    let selected = is_selected(selection, row as usize, col as usize);
-                    if ch.is_empty() && !selected {
-                        continue;
-                    }
-                    let mut style = Style::default();
-                    style = style.fg(vt100_color(cell.fgcolor()));
-                    style = style.bg(vt100_color(cell.bgcolor()));
-                    if cell.bold() {
-                        style = style.add_modifier(Modifier::BOLD);
-                    }
-                    if cell.italic() {
-                        style = style.add_modifier(Modifier::ITALIC);
-                    }
-                    if cell.underline() {
-                        style = style.add_modifier(Modifier::UNDERLINED);
-                    }
-                    if cell.inverse() {
-                        style = style.add_modifier(Modifier::REVERSED);
-                    }
-                    if selected {
-                        style = style.add_modifier(Modifier::REVERSED);
-                    }
-                    let symbol = if ch.is_empty() { " " } else { ch };
-                    buf[(inner.x + col, inner.y + row)]
-                        .set_symbol(symbol)
-                        .set_style(style);
+    app.view.visible_lines = vec![String::new(); inner.height as usize];
+    for row in 0..inner.height {
+        for col in 0..inner.width {
+            if let Some(cell) = screen.cell(row, col) {
+                let contents = cell.contents();
+                if let Some(line) = app.view.visible_lines.get_mut(row as usize) {
+                    line.push_str(if contents.is_empty() { " " } else { contents });
                 }
+
+                let selected = is_selected(selection, row as usize, col as usize);
+                if contents.is_empty() && !selected {
+                    continue;
+                }
+
+                let mut style = Style::default()
+                    .fg(vt100_color(cell.fgcolor()))
+                    .bg(vt100_color(cell.bgcolor()));
+                if cell.bold() {
+                    style = style.add_modifier(Modifier::BOLD);
+                }
+                if cell.italic() {
+                    style = style.add_modifier(Modifier::ITALIC);
+                }
+                if cell.underline() {
+                    style = style.add_modifier(Modifier::UNDERLINED);
+                }
+                if cell.inverse() {
+                    style = style.add_modifier(Modifier::REVERSED);
+                }
+                if selected {
+                    style = style.add_modifier(Modifier::REVERSED);
+                }
+
+                let symbol = if contents.is_empty() { " " } else { contents };
+                buf[(inner.x + col, inner.y + row)]
+                    .set_symbol(symbol)
+                    .set_style(style);
             }
         }
-        let (crow, ccol) = screen.cursor_position();
-        let (mut col, mut row) = (ccol, crow);
+    }
+
+    if !scrolling {
+        let (cursor_row, cursor_col) = screen.cursor_position();
+        let (mut col, mut row) = (cursor_col, cursor_row);
+
         if app.input_mode == InputMode::Line {
             let style = Style::default().fg(Color::Cyan);
             let mut utf8 = [0u8; 4];
-            for ch in app.line.buffer.chars() {
+            for character in app.line.buffer.chars() {
                 if col >= inner.width {
                     col = 0;
                     row = row.saturating_add(1);
@@ -127,13 +106,15 @@ pub fn draw(app: &mut App, frame: &mut Frame) {
                 if row >= inner.height {
                     break;
                 }
-                let symbol = ch.encode_utf8(&mut utf8);
+
+                let symbol = character.encode_utf8(&mut utf8);
                 buf[(inner.x + col, inner.y + row)]
                     .set_symbol(symbol)
                     .set_style(style);
                 col += 1;
             }
         }
+
         frame.set_cursor_position((
             (inner.x + col).min(inner.x + inner.width - 1),
             (inner.y + row).min(inner.y + inner.height - 1),
@@ -244,7 +225,7 @@ fn handle_insert_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
     if code == KeyCode::Esc {
         let had_selection = app.selection.anchor.is_some();
         app.selection.clear();
-        if app.view.scroll_offset > 0 {
+        if app.view.parser.screen().scrollback() > 0 {
             app.scroll_to_bottom();
             return;
         }
@@ -329,42 +310,6 @@ fn is_selected(
     let from = if row == start.0 { start.1 } else { 0 };
     let to = if row == end.0 { end.1 } else { usize::MAX };
     col >= from && col <= to
-}
-
-fn styled_line(
-    line: &str,
-    row: usize,
-    selection: Option<((usize, usize), (usize, usize))>,
-) -> ratatui::text::Line<'static> {
-    let Some((start, end)) = selection else {
-        return ratatui::text::Line::from(line.to_string());
-    };
-    if row < start.0 || row > end.0 {
-        return ratatui::text::Line::from(line.to_string());
-    }
-
-    let chars: Vec<char> = line.chars().collect();
-    let from = (if row == start.0 { start.1 } else { 0 }).min(chars.len());
-    let to = (if row == end.0 { end.1 + 1 } else { chars.len() })
-        .max(from)
-        .min(chars.len());
-
-    let before: String = chars[..from].iter().collect();
-    let selected: String = chars[from..to].iter().collect();
-    let after: String = chars[to..].iter().collect();
-
-    let mut spans = Vec::new();
-    if !before.is_empty() {
-        spans.push(Span::raw(before));
-    }
-    spans.push(Span::styled(
-        selected,
-        Style::default().add_modifier(Modifier::REVERSED),
-    ));
-    if !after.is_empty() {
-        spans.push(Span::raw(after));
-    }
-    ratatui::text::Line::from(spans)
 }
 
 fn vt100_color(color: vt100::Color) -> Color {
