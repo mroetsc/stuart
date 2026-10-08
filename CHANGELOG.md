@@ -13,6 +13,18 @@ All notable changes to this project will be documented in this file. See [conven
 - (**version**) 0.5.0 - ([00ea273](https://github.com/mroetsc/stuart/commit/00ea27398696d0d5e6a70adf75a8625a3ec0290e)) - [@mroetsc](https://github.com/mroetsc)
 
 - - -
+## [0.5.1](https://github.com/mroetsc/stuart/compare/3a2c4d855a31c8c92bbc31acceb073056f326b65..0.5.1) - 2026-10-08
+#### Bug Fixes
+- Fix scrollback loose color output - ([c6e032e](https://github.com/mroetsc/stuart/commit/c6e032e8a9fdc47d79c6a2c911b10e7bdf8afca4)) - Alexander Thoma
+#### Miscellaneous Chores
+- (**merge**) pull request #6 from C0DE-X/fix/scroll-color - ([69f61ca](https://github.com/mroetsc/stuart/commit/69f61ca3d5e46471740a4a0357a355d400798990)) - Mattes Rötschke
+- (**version**) 0.5.0 changelog was not created by cocogitto - ([3a2c4d8](https://github.com/mroetsc/stuart/commit/3a2c4d855a31c8c92bbc31acceb073056f326b65)) - [@mroetsc](https://github.com/mroetsc)
+- removed duplicate changelog file - ([64e7e73](https://github.com/mroetsc/stuart/commit/64e7e73dcec5a973a4ee402b001939b9c78a494c)) - [@mroetsc](https://github.com/mroetsc)
+- removed redundant field in Cargo.toml - ([d09e096](https://github.com/mroetsc/stuart/commit/d09e0960d465b41cf961a7973e9459a64d97c77e)) - [@mroetsc](https://github.com/mroetsc)
+- updated dependencies - ([8dafbe8](https://github.com/mroetsc/stuart/commit/8dafbe8ab6c03725295f696f4c44b55daa69b549)) - [@mroetsc](https://github.com/mroetsc)
+
+- - -
+
 ## [0.4.0](https://github.com/mroetsc/stuart/compare/ef90242299621615170d4fb0beeab8db3d17ce71..0.4.0) - 2026-06-23
 #### Features
 - (**cli**) allow to set incoming newline via args (#4) - ([78b12dc](https://github.com/mroetsc/stuart/commit/78b12dc9f0db2fa939114178144b0c2c4f3d86ba)) - [@mroetsc](https://github.com/mroetsc)
