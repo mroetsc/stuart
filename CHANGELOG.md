@@ -1,5 +1,15 @@
-# Changelog
-All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
+## [0.5.1](https://github.com/mroetsc/stuart/compare/0.5.0..0.5.1) - 2026-10-08
+#### Bug Fixes
+- Fix scrollback loose color output - ([c6e032e](https://github.com/mroetsc/stuart/commit/c6e032e8a9fdc47d79c6a2c911b10e7bdf8afca4)) - Alexander Thoma
+#### Miscellaneous Chores
+- (**merge**) pull request #6 from C0DE-X/fix/scroll-color - ([69f61ca](https://github.com/mroetsc/stuart/commit/69f61ca3d5e46471740a4a0357a355d400798990)) - Mattes Rötschke
+- (**version**) 0.5.1 - ([4ea73ce](https://github.com/mroetsc/stuart/commit/4ea73ced9b36f76159ac309efe955f9c89fc72fe)) - [@mroetsc](https://github.com/mroetsc)
+- (**version**) 0.5.0 changelog was not created by cocogitto - ([3a2c4d8](https://github.com/mroetsc/stuart/commit/3a2c4d855a31c8c92bbc31acceb073056f326b65)) - [@mroetsc](https://github.com/mroetsc)
+- removed duplicate changelog file - ([64e7e73](https://github.com/mroetsc/stuart/commit/64e7e73dcec5a973a4ee402b001939b9c78a494c)) - [@mroetsc](https://github.com/mroetsc)
+- removed redundant field in Cargo.toml - ([d09e096](https://github.com/mroetsc/stuart/commit/d09e0960d465b41cf961a7973e9459a64d97c77e)) - [@mroetsc](https://github.com/mroetsc)
+- updated dependencies - ([8dafbe8](https://github.com/mroetsc/stuart/commit/8dafbe8ab6c03725295f696f4c44b55daa69b549)) - [@mroetsc](https://github.com/mroetsc)
+
+- - -
 
 ## [0.5.0](https://github.com/mroetsc/stuart/compare/0.4.0..0.5.0) - 2026-07-13
 #### Features
@@ -13,19 +23,8 @@ All notable changes to this project will be documented in this file. See [conven
 - (**version**) 0.5.0 - ([00ea273](https://github.com/mroetsc/stuart/commit/00ea27398696d0d5e6a70adf75a8625a3ec0290e)) - [@mroetsc](https://github.com/mroetsc)
 
 - - -
-## [0.5.1](https://github.com/mroetsc/stuart/compare/3a2c4d855a31c8c92bbc31acceb073056f326b65..0.5.1) - 2026-10-08
-#### Bug Fixes
-- Fix scrollback loose color output - ([c6e032e](https://github.com/mroetsc/stuart/commit/c6e032e8a9fdc47d79c6a2c911b10e7bdf8afca4)) - Alexander Thoma
-#### Miscellaneous Chores
-- (**merge**) pull request #6 from C0DE-X/fix/scroll-color - ([69f61ca](https://github.com/mroetsc/stuart/commit/69f61ca3d5e46471740a4a0357a355d400798990)) - Mattes Rötschke
-- (**version**) 0.5.0 changelog was not created by cocogitto - ([3a2c4d8](https://github.com/mroetsc/stuart/commit/3a2c4d855a31c8c92bbc31acceb073056f326b65)) - [@mroetsc](https://github.com/mroetsc)
-- removed duplicate changelog file - ([64e7e73](https://github.com/mroetsc/stuart/commit/64e7e73dcec5a973a4ee402b001939b9c78a494c)) - [@mroetsc](https://github.com/mroetsc)
-- removed redundant field in Cargo.toml - ([d09e096](https://github.com/mroetsc/stuart/commit/d09e0960d465b41cf961a7973e9459a64d97c77e)) - [@mroetsc](https://github.com/mroetsc)
-- updated dependencies - ([8dafbe8](https://github.com/mroetsc/stuart/commit/8dafbe8ab6c03725295f696f4c44b55daa69b549)) - [@mroetsc](https://github.com/mroetsc)
 
-- - -
-
-## [0.4.0](https://github.com/mroetsc/stuart/compare/ef90242299621615170d4fb0beeab8db3d17ce71..0.4.0) - 2026-06-23
+## [0.4.0](https://github.com/mroetsc/stuart/compare/0.3.0..0.4.0) - 2026-06-23
 #### Features
 - (**cli**) allow to set incoming newline via args (#4) - ([78b12dc](https://github.com/mroetsc/stuart/commit/78b12dc9f0db2fa939114178144b0c2c4f3d86ba)) - [@mroetsc](https://github.com/mroetsc)
 - (**config**) set incoming newline via config file (#4) - ([7259e66](https://github.com/mroetsc/stuart/commit/7259e66e3a227755fb51e57d848c6c4c724d4e4b)) - [@mroetsc](https://github.com/mroetsc)
@@ -39,11 +38,12 @@ All notable changes to this project will be documented in this file. See [conven
 - included cargo publish in cocogitto post bump - ([09c47fc](https://github.com/mroetsc/stuart/commit/09c47fcc867df8dab7b8fe902271776351c2caac)) - [@mroetsc](https://github.com/mroetsc)
 #### Miscellaneous Chores
 - (**ui**) minor casings chase - ([d25b653](https://github.com/mroetsc/stuart/commit/d25b6539c6be4fb77f14476ffaa956a8a7b7a2a3)) - [@mroetsc](https://github.com/mroetsc)
+- (**version**) 0.4.0 - ([580529d](https://github.com/mroetsc/stuart/commit/580529d6895ef4e274a96b5b93c07944804b3cbd)) - [@mroetsc](https://github.com/mroetsc)
 - added some package metadata to cargo.toml - ([ef90242](https://github.com/mroetsc/stuart/commit/ef90242299621615170d4fb0beeab8db3d17ce71)) - [@mroetsc](https://github.com/mroetsc)
 
 - - -
 
-## [0.3.0](https://github.com/mroetsc/stuart/compare/4f4dec07544a885ff1363ef444f5b084f69f0179..0.3.0) - 2026-06-17
+## [0.3.0](https://github.com/mroetsc/stuart/compare/0.2.0..0.3.0) - 2026-06-17
 #### Features
 - (**config**) support for setting input mode via config file - ([01447f9](https://github.com/mroetsc/stuart/commit/01447f9da0a3ade5544e2d0f4afd8eef410c50bf)) - [@mroetsc](https://github.com/mroetsc)
 - (**state**) support for input mode differentiation - ([4f4dec0](https://github.com/mroetsc/stuart/commit/4f4dec07544a885ff1363ef444f5b084f69f0179)) - [@mroetsc](https://github.com/mroetsc)
@@ -51,10 +51,11 @@ All notable changes to this project will be documented in this file. See [conven
 - (**ui**) render line input mode buffer - ([214cd47](https://github.com/mroetsc/stuart/commit/214cd47374e58805ec6cf26f275d02f8f92de132)) - [@mroetsc](https://github.com/mroetsc)
 #### Miscellaneous Chores
 - (**docs**) updated readme to reflect line mode introduction - ([1e15697](https://github.com/mroetsc/stuart/commit/1e15697041a3614615dcee38fc467deec350de43)) - [@mroetsc](https://github.com/mroetsc)
+- (**version**) 0.3.0 - ([5c560c9](https://github.com/mroetsc/stuart/commit/5c560c9a2b3812a08ab4a5a821af2b24743e5bd3)) - [@mroetsc](https://github.com/mroetsc)
 
 - - -
 
-## [0.2.0](https://github.com/mroetsc/stuart/compare/1cc1082531fa33f396e281c51fd12d336d519e3a..0.2.0) - 2026-06-16
+## [0.2.0](https://github.com/mroetsc/stuart/compare/0.1.2..0.2.0) - 2026-06-16
 #### Features
 - (**cli**) config value priority and args for creating new default config - ([0f87016](https://github.com/mroetsc/stuart/commit/0f870168121c02fec5ba9bd1c7bf49e192dd1b55)) - [@mroetsc](https://github.com/mroetsc)
 - (**config**) implemented first draft of config module - ([4911c73](https://github.com/mroetsc/stuart/commit/4911c73334825e433b90c7220f43e44405d5cd54)) - [@mroetsc](https://github.com/mroetsc)
@@ -68,12 +69,13 @@ All notable changes to this project will be documented in this file. See [conven
 #### Miscellaneous Chores
 - (**cli**) minor spelling changes - ([17cef55](https://github.com/mroetsc/stuart/commit/17cef55e99a90d8f546444b06b4092088ce84b62)) - [@mroetsc](https://github.com/mroetsc)
 - (**docs**) changed help output highlighting in readme - ([1cc1082](https://github.com/mroetsc/stuart/commit/1cc1082531fa33f396e281c51fd12d336d519e3a)) - [@mroetsc](https://github.com/mroetsc)
+- (**version**) 0.2.0 - ([b2a9230](https://github.com/mroetsc/stuart/commit/b2a923009835a9f3f95f19ac0b100c807167d804)) - [@mroetsc](https://github.com/mroetsc)
 - dded dirs dependency - ([95eba5d](https://github.com/mroetsc/stuart/commit/95eba5d3c1f625d5ee40e1a5f57c638acc0cc6ea)) - [@mroetsc](https://github.com/mroetsc)
 - added serde and config depedency - ([10d5b32](https://github.com/mroetsc/stuart/commit/10d5b327fb55a0693a41f9641696ecab9c8a894f)) - [@mroetsc](https://github.com/mroetsc)
 
 - - -
 
-## [0.1.2](https://github.com/mroetsc/stuart/compare/1b00b374ad4afc49a0a61f56295724148c857f58..0.1.2) - 2026-06-13
+## [0.1.2](https://github.com/mroetsc/stuart/compare/0.1.1..0.1.2) - 2026-06-13
 #### Features
 - (**cli**) added arg for setting outgoing newline encoding - ([7b3fc5b](https://github.com/mroetsc/stuart/commit/7b3fc5b3736e40d7ca5b046b6f62460b5cac5f79)) - [@mroetsc](https://github.com/mroetsc)
 - (**cli**) added argument for local echo; also added to settings and state struct - ([f87d6a9](https://github.com/mroetsc/stuart/commit/f87d6a90048d58790d35689ef03bd2402c2c5438)) - [@mroetsc](https://github.com/mroetsc)
@@ -91,10 +93,11 @@ All notable changes to this project will be documented in this file. See [conven
 - (**ui**) settings page now uses a common enum; also overhauled styling a bit - ([9a70bff](https://github.com/mroetsc/stuart/commit/9a70bff91790873b2ab2f250b7f95bcc722ea8c1)) - [@mroetsc](https://github.com/mroetsc)
 #### Miscellaneous Chores
 - (**docs**) reduced demo gif size - ([9fd2f15](https://github.com/mroetsc/stuart/commit/9fd2f158df12504a5944d5c8ee7027d5c3862f1d)) - [@mroetsc](https://github.com/mroetsc)
+- (**version**) 0.1.2 - ([2cd71ee](https://github.com/mroetsc/stuart/commit/2cd71ee07aba30318667ffbfb1e6c147f781969e)) - [@mroetsc](https://github.com/mroetsc)
 
 - - -
 
-## [0.1.1](https://github.com/mroetsc/stuart/compare/a6d2e500aca731bc424bfd7796c3e65f45123fe6..0.1.1) - 2026-06-11
+## [0.1.1](https://github.com/mroetsc/stuart/compare/0.1.0..0.1.1) - 2026-06-11
 #### Features
 - (**cli**) better grouping for help output - ([7a77410](https://github.com/mroetsc/stuart/commit/7a77410cbb52cc0be74861b74bb6a9956f59596a)) - [@mroetsc](https://github.com/mroetsc)
 - (**state**) sort available ports in PortSelection properly - ([74f9d11](https://github.com/mroetsc/stuart/commit/74f9d11e5534f5ea6c96f01379eba380b92f6397)) - [@mroetsc](https://github.com/mroetsc)
@@ -104,6 +107,7 @@ All notable changes to this project will be documented in this file. See [conven
 #### Build system
 - renamed cargo binary to stuart - ([578950d](https://github.com/mroetsc/stuart/commit/578950dc65ab8d5b3342899e95787f8ea34a42ce)) - [@mroetsc](https://github.com/mroetsc)
 #### Miscellaneous Chores
+- (**version**) 0.1.1 - ([cd59c25](https://github.com/mroetsc/stuart/commit/cd59c2565af703266ecf85d7d0106925fbd24d78)) - [@mroetsc](https://github.com/mroetsc)
 - update cargo package name and update install instructions - ([a6d2e50](https://github.com/mroetsc/stuart/commit/a6d2e500aca731bc424bfd7796c3e65f45123fe6)) - [@mroetsc](https://github.com/mroetsc)
 
 - - -
@@ -166,6 +170,7 @@ All notable changes to this project will be documented in this file. See [conven
 - moved application state into its own module - ([e4e8a1a](https://github.com/mroetsc/stuart/commit/e4e8a1a7db57e4e76c4e282f9580142b2177be94)) - [@mroetsc](https://github.com/mroetsc)
 #### Miscellaneous Chores
 - (**ui**) display baud from port config - ([fd6113d](https://github.com/mroetsc/stuart/commit/fd6113d9d33b3e66563ff8891c9cdc4186878aeb)) - [@mroetsc](https://github.com/mroetsc)
+- (**version**) 0.1.0 - ([46e5cb8](https://github.com/mroetsc/stuart/commit/46e5cb81dc4e5ac96f6919b3509395c4364f6111)) - [@mroetsc](https://github.com/mroetsc)
 - added strip-ansi-escapes dependency - ([2c193df](https://github.com/mroetsc/stuart/commit/2c193dfe6fd49cc7098a43b06aebb1f737f1ce3f)) - [@mroetsc](https://github.com/mroetsc)
 - added clap_complete dependency - ([9344a9a](https://github.com/mroetsc/stuart/commit/9344a9ac0187058b88f7f9ee7d7eacc4bc82fd25)) - [@mroetsc](https://github.com/mroetsc)
 - added arboard dependency - ([54434ab](https://github.com/mroetsc/stuart/commit/54434abf319382698d992122a0e0aaeadd2f25b9)) - [@mroetsc](https://github.com/mroetsc)
@@ -176,6 +181,4 @@ All notable changes to this project will be documented in this file. See [conven
 - added dependencies - ([04c4677](https://github.com/mroetsc/stuart/commit/04c46778ee195f461d96462bb67eabee95ba9ca8)) - [@mroetsc](https://github.com/mroetsc)
 - initial commit - ([5434e10](https://github.com/mroetsc/stuart/commit/5434e100f6ec191a832d330b1b5bd8d696a9c922)) - [@mroetsc](https://github.com/mroetsc)
 
-- - -
 
-Changelog generated by [cocogitto](https://github.com/cocogitto/cocogitto).
