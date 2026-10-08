@@ -7,7 +7,6 @@ readme = "README.md"
 version = "0.5.0"
 edition = "2024"
 authors = ["Mattes Rötschke"]
-homepage = "https://github.com/mroetsc/stuart"
 keywords = ["serial-communication", "serialport"]
 include = ["example.config.toml", "/src", "README.md", "LICENSE", "CHANGELOG.md"]
 
